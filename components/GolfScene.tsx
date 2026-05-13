@@ -71,6 +71,17 @@ const IMPACT_COLORS: Record<SurfaceType, string> = {
   cart: "#d5dde1"
 };
 
+function easeOutCubic(value: number) {
+  const t = clamp(value, 0, 1);
+  const inverse = 1 - t;
+  return 1 - inverse * inverse * inverse;
+}
+
+function smoothStep(edge0: number, edge1: number, value: number) {
+  const t = clamp((value - edge0) / Math.max(0.0001, edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 function colorForSurface(surface: SurfaceType, x: number, z: number) {
   const color = new THREE.Color(SURFACE_COLORS[surface]);
   const fleck = Math.sin(x * 0.37 + z * 0.19) * 0.025 + Math.sin(x * 0.11 - z * 0.23) * 0.018;
@@ -801,6 +812,10 @@ export function GolfScene(props: GolfSceneProps) {
     const aimOrigin = new THREE.Vector3();
     const velocityDir = new THREE.Vector3();
     const windDirectionVector = new THREE.Vector3();
+    const clubAimVector = new THREE.Vector3();
+    const clubSideVector = new THREE.Vector3();
+    const clubOffset = new THREE.Vector3();
+    const clubHeadOffset = new THREE.Vector3();
     const trailPointBuffer = Array.from({ length: TRAIL_LENGTH }, () => new THREE.Vector3());
     const trailLastPoint = new THREE.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
     const trailTailColor = new THREE.Color("#6ff3a8");
@@ -837,6 +852,13 @@ export function GolfScene(props: GolfSceneProps) {
     let landingPulseBaseScale = 1;
     let boostPulseBaseScaleX = 1;
     let boostPulseBaseScaleY = 1;
+    let visualStrikeStartedAt = -1000;
+    let visualStrikePower = 0;
+    let visualStrikeBackswing = 0;
+    let visualStrikeX = 0;
+    let visualStrikeZ = 0;
+    let visualStrikeShotType: ShotType = "normal";
+    let visualFollowThroughUntil = -1000;
     let lastRestartToken = propsRef.current.restartToken;
     let lastCameraToken = propsRef.current.cameraToken;
     let lowSpeedControlSeconds = 0;
@@ -1016,6 +1038,13 @@ export function GolfScene(props: GolfSceneProps) {
       holeBurstStartedAt = 0;
       landingPulseStartedAt = 0;
       boostPulseStartedAt = 0;
+      visualStrikeStartedAt = -1000;
+      visualStrikePower = 0;
+      visualStrikeBackswing = 0;
+      visualStrikeX = activeHole.teePosition.x;
+      visualStrikeZ = activeHole.teePosition.z;
+      visualStrikeShotType = "normal";
+      visualFollowThroughUntil = -1000;
       holeBurst.visible = false;
       landingPulse.pulse.visible = false;
       boostPulse.pulse.visible = false;
@@ -1064,10 +1093,18 @@ export function GolfScene(props: GolfSceneProps) {
         lastShotWasBoosted = false;
         boostUsedThisShot = false;
         lastBounceAt = 0;
+        const strikeStartedAt = performance.now();
+        visualStrikeStartedAt = strikeStartedAt;
+        visualStrikePower = strike.power;
+        visualStrikeBackswing = strike.backswing;
+        visualStrikeX = ball.position[0];
+        visualStrikeZ = ball.position[2];
+        visualStrikeShotType = shotType;
+        visualFollowThroughUntil = strikeStartedAt + (shotType === "putt" ? 520 : 760 + strike.power * 260);
         audio.playHit(strike.power);
         strokes += 1;
         phase = "BALL_FLIGHT";
-        shotStartedAt = performance.now();
+        shotStartedAt = strikeStartedAt;
         launchBall(ball, strike, club, aimAngle, propsRef.current.settings.arcadePhysics, setup, ball.surface);
         shotResult = shotFeedback(strike, club, ball.surface, setup.shotType, setup, activeWind);
         setTrailStyle(shotType, setup);
@@ -1199,6 +1236,10 @@ export function GolfScene(props: GolfSceneProps) {
     const updateClubVisual = (now: number) => {
       const club = CLUB_BY_ID[activeClubId] ?? CLUB_BY_ID.driver;
       const category = club.category;
+      const setup = propsRef.current.shotSetup;
+      const currentShotType = effectiveShotType(activeClubId, setup.shotType);
+      const shotType = now < visualFollowThroughUntil ? visualStrikeShotType : currentShotType;
+      const putterStroke = shotType === "putt";
 
       if (clubVisual.activeCategory !== category) {
         for (const [headCategory, head] of Object.entries(clubVisual.heads)) {
@@ -1207,14 +1248,85 @@ export function GolfScene(props: GolfSceneProps) {
         clubVisual.activeCategory = category;
       }
 
-      const [x, , z] = ball.position;
-      const groundY = terrainHeightAt(x, z, activeHole);
+      const swingSize = putterStroke ? 0.72 : shotType === "chip" ? 0.74 : shotType === "punch" ? 0.86 : shotType === "flop" ? 1.08 : 1;
+      const backDistance = (putterStroke ? 2.8 : shotType === "chip" ? 4.2 : shotType === "punch" ? 5.2 : shotType === "flop" ? 6.8 : 6.2) * swingSize;
+      const followDistance = (putterStroke ? 3.1 : shotType === "chip" ? 4.3 : shotType === "punch" ? 5.1 : shotType === "flop" ? 6.1 : 5.8) * swingSize;
+      const arcHeight = (putterStroke ? 0.18 : shotType === "chip" ? 0.9 : shotType === "punch" ? 1.35 : shotType === "flop" ? 3 : 2.15) * swingSize;
+      const followDuration = Math.max(1, visualFollowThroughUntil - visualStrikeStartedAt);
+      const followT = clamp((now - visualStrikeStartedAt) / followDuration, 0, 1);
+      const followActive = now < visualFollowThroughUntil;
+      const [ballX, , ballZ] = ball.position;
+      const originX = followActive ? visualStrikeX : ballX;
+      const originZ = followActive ? visualStrikeZ : ballZ;
+      const groundY = terrainHeightAt(originX, originZ, activeHole);
       const idleBob = Math.sin(now * 0.004) * 0.025;
-      const backswingLift = phase === "BACKSWING" ? swingSnapshot.backswing * 0.58 : phase === "DOWNSWING" ? -swingSnapshot.power * 0.24 : 0;
+      const backAmount = easeOutCubic(swingSnapshot.backswing);
+      const topLoad = smoothStep(0.78, 1, backAmount);
+      const downAmount = phase === "DOWNSWING" ? smoothStep(0.06, 0.82, swingSnapshot.downswingVelocity) : 0;
+      const visualPower = followActive ? visualStrikePower : clamp(swingSnapshot.power + swingSnapshot.backswing * 0.45, 0.16, 1);
 
-      clubVisual.group.visible = !ball.moving && !holed;
-      clubVisual.group.position.set(x, groundY + idleBob, z);
-      clubVisual.group.rotation.set(0, aimAngle, backswingLift);
+      let pathT = -0.42;
+      let lift = idleBob;
+      let planeTilt = putterStroke ? -0.08 : -0.2;
+      let faceRelease = 0;
+
+      if (followActive) {
+        const strikeBack = easeOutCubic(Math.max(visualStrikeBackswing, 0.04));
+        const strikeTopLoad = smoothStep(0.78, 1, strikeBack);
+        const loadHoldT = putterStroke ? 0.035 : 0.06;
+        const impactT = putterStroke ? 0.24 : 0.27;
+        const downswingT = smoothStep(loadHoldT, impactT, followT);
+        const followEase = easeOutCubic(smoothStep(impactT, 1, followT));
+        const followStrength = 0.42 + visualStrikePower * 0.72;
+        const remainingBack = strikeBack * (1 - downswingT);
+        pathT =
+          -0.42 -
+          backDistance * remainingBack -
+          strikeTopLoad * 0.18 * (1 - downswingT) +
+          followDistance * followEase * followStrength;
+        lift +=
+          arcHeight * Math.sin(remainingBack * Math.PI * 0.5) +
+          arcHeight * Math.sin(followEase * Math.PI * 0.5) * (putterStroke ? 0.55 : 0.78 + visualStrikePower * 0.24);
+        planeTilt = putterStroke
+          ? -0.08 + remainingBack * 0.14 - followEase * 0.14
+          : -0.2 + remainingBack * 0.72 - followEase * (0.5 + visualStrikePower * 0.34);
+        faceRelease = -strikeTopLoad * 0.05 * (1 - downswingT) + followEase * (putterStroke ? 0.06 : 0.2);
+      } else if (phase === "DOWNSWING") {
+        const topBack = easeOutCubic(Math.max(visualStrikeBackswing, swingSnapshot.backswing));
+        const remainingBack = topBack * (1 - downAmount);
+        pathT = -0.42 - backDistance * remainingBack + followDistance * 0.12 * downAmount * visualPower;
+        lift += arcHeight * Math.sin(remainingBack * Math.PI * 0.5);
+        planeTilt = putterStroke ? -0.08 + remainingBack * 0.12 : -0.2 + remainingBack * 0.72 - downAmount * 0.28;
+        faceRelease = downAmount * (putterStroke ? 0.04 : 0.1);
+      } else if (phase === "BACKSWING") {
+        pathT = -0.42 - backDistance * backAmount - topLoad * 0.22;
+        lift += arcHeight * Math.sin(backAmount * Math.PI * 0.5) - topLoad * 0.12;
+        planeTilt = putterStroke ? -0.08 + backAmount * 0.16 : -0.2 + backAmount * 0.78 + topLoad * 0.08;
+        faceRelease = -topLoad * 0.06;
+      }
+
+      clubAimVector.set(Math.sin(aimAngle), 0, Math.cos(aimAngle));
+      clubSideVector.set(Math.cos(aimAngle), 0, -Math.sin(aimAngle));
+      clubOffset.copy(clubAimVector).multiplyScalar(pathT);
+      clubOffset.addScaledVector(clubSideVector, putterStroke ? -0.18 : -0.34);
+
+      const yaw = aimAngle + faceRelease;
+      const headLocalX = category === "putter" ? 2.12 : category === "wood" ? 1.95 : 1.9;
+      const headLocalY = category === "putter" ? 0.45 : category === "wood" ? 0.7 : 0.76;
+      const headLocalZ = category === "putter" ? -2.25 : category === "wood" ? -2.35 : -2.28;
+      clubHeadOffset.set(
+        Math.cos(yaw) * headLocalX + Math.sin(yaw) * headLocalZ,
+        0,
+        -Math.sin(yaw) * headLocalX + Math.cos(yaw) * headLocalZ
+      );
+
+      clubVisual.group.visible = !holed && (!ball.moving || followActive);
+      clubVisual.group.position.set(
+        originX + clubOffset.x - clubHeadOffset.x,
+        groundY + lift + (putterStroke ? 0.45 : 0.68) - headLocalY,
+        originZ + clubOffset.z - clubHeadOffset.z
+      );
+      clubVisual.group.rotation.set(planeTilt, yaw, putterStroke ? 0.02 : -0.04 + topLoad * 0.08);
       clubVisual.group.scale.setScalar(category === "putter" ? 0.86 : category === "wood" ? 1 : 0.94);
     };
 
@@ -1412,10 +1524,15 @@ export function GolfScene(props: GolfSceneProps) {
       }
     };
 
-    const updateCamera = (dt: number) => {
+    const updateCamera = (now: number, dt: number) => {
       const [x, y, z] = ball.position;
-      const moving = ball.moving || cameraMode === "follow";
+      const impactHoldMs = visualStrikeShotType === "putt" ? 420 : 820;
+      const holdImpactView = ball.moving && cameraMode === "auto" && now - visualStrikeStartedAt < impactHoldMs;
+      const moving = (ball.moving && !holdImpactView) || cameraMode === "follow";
       const pinMode = cameraMode === "pin";
+      const cameraAnchorX = holdImpactView ? visualStrikeX : x;
+      const cameraAnchorZ = holdImpactView ? visualStrikeZ : z;
+      const cameraAnchorY = holdImpactView ? terrainHeightAt(cameraAnchorX, cameraAnchorZ, activeHole) : y;
       aimDirection.set(Math.sin(aimAngle), 0, Math.cos(aimAngle)).normalize();
       velocityDir.set(ball.velocity[0], 0, ball.velocity[2]);
       if (velocityDir.lengthSq() > 1) {
@@ -1439,8 +1556,8 @@ export function GolfScene(props: GolfSceneProps) {
         desiredCamera.set(x - velocityDir.x * 40, y + (ball.airborne ? 24 : 15), z - velocityDir.z * 42);
         desiredLook.set(x + velocityDir.x * 18, y + (ball.airborne ? 8 : 5), z + velocityDir.z * 22);
       } else {
-        desiredCamera.set(x - aimDirection.x * 48, terrainHeightAt(x, z, activeHole) + 23, z - aimDirection.z * 52);
-        desiredLook.set(x + aimDirection.x * 36, terrainHeightAt(x, z, activeHole) + 5.5, z + aimDirection.z * 45);
+        desiredCamera.set(cameraAnchorX - aimDirection.x * 48, cameraAnchorY + 23, cameraAnchorZ - aimDirection.z * 52);
+        desiredLook.set(cameraAnchorX + aimDirection.x * 36, cameraAnchorY + 5.5, cameraAnchorZ + aimDirection.z * 45);
       }
 
       if (screenShake > 0) {
@@ -1884,7 +2001,7 @@ export function GolfScene(props: GolfSceneProps) {
       updateClubVisual(now);
       updateImpactPulses(now);
       updateHoleBurst(now, dt);
-      updateCamera(dt);
+      updateCamera(now, dt);
       renderer.render(scene, camera);
       emitHud(false);
     };
