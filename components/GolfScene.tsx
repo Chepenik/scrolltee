@@ -700,8 +700,16 @@ function isEditableTarget(target: EventTarget | null) {
   );
 }
 
+function isSceneControlTarget(target: EventTarget | null) {
+  return target instanceof Element && target.closest(".mobile-touch-controls") !== null;
+}
+
 export function GolfScene(props: GolfSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
+  const mobileSwingZoneRef = useRef<HTMLDivElement | null>(null);
+  const mobileAimLeftRef = useRef<HTMLButtonElement | null>(null);
+  const mobileAimRightRef = useRef<HTMLButtonElement | null>(null);
   const propsRef = useRef(props);
 
   useLayoutEffect(() => {
@@ -710,7 +718,8 @@ export function GolfScene(props: GolfSceneProps) {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) {
+    const canvasHost = canvasHostRef.current;
+    if (!container || !canvasHost) {
       return;
     }
 
@@ -729,7 +738,7 @@ export function GolfScene(props: GolfSceneProps) {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.domElement.className = "scene-canvas";
-    container.appendChild(renderer.domElement);
+    canvasHost.appendChild(renderer.domElement);
 
     const ambient = new THREE.HemisphereLight("#dff6ff", "#316d39", 1.45);
     scene.add(ambient);
@@ -1867,7 +1876,7 @@ export function GolfScene(props: GolfSceneProps) {
 
     const handlePointerDown = (event: PointerEvent) => {
       container.focus();
-      if (event.button !== 0 || ball.moving || holed) {
+      if (isSceneControlTarget(event.target) || event.button !== 0 || ball.moving || holed) {
         return;
       }
       draggingAim = true;
@@ -1887,6 +1896,169 @@ export function GolfScene(props: GolfSceneProps) {
     const handlePointerUp = () => {
       draggingAim = false;
     };
+
+    const mobileSwingZone = mobileSwingZoneRef.current;
+    const mobileAimLeft = mobileAimLeftRef.current;
+    const mobileAimRight = mobileAimRightRef.current;
+    const mobileControlCleanups: Array<() => void> = [];
+    let mobileSwingActive = false;
+    let mobileSwingPointerId = -1;
+    let mobileSwingStartY = 0;
+    let mobileSwingPeakY = 0;
+    let mobileSwingLastX = 0;
+    let mobileSwingLastY = 0;
+    let mobileSwingLastAt = 0;
+    let mobileAimInterval = 0;
+
+    const setMobileSwingUi = (pull: number, release: number, activeSwing: boolean) => {
+      if (!mobileSwingZone) {
+        return;
+      }
+
+      mobileSwingZone.style.setProperty("--mobile-swing-pull", pull.toFixed(3));
+      mobileSwingZone.style.setProperty("--mobile-swing-release", release.toFixed(3));
+      mobileSwingZone.classList.toggle("is-active", activeSwing);
+    };
+
+    const handleMobileSwingPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const now = performance.now();
+      if (!input.startTouchSwing(now)) {
+        return;
+      }
+
+      mobileSwingActive = true;
+      mobileSwingPointerId = event.pointerId;
+      mobileSwingStartY = event.clientY;
+      mobileSwingPeakY = event.clientY;
+      mobileSwingLastX = event.clientX;
+      mobileSwingLastY = event.clientY;
+      mobileSwingLastAt = now;
+      mobileSwingZone?.setPointerCapture(event.pointerId);
+      setMobileSwingUi(0, 0, true);
+    };
+
+    const handleMobileSwingPointerMove = (event: PointerEvent) => {
+      if (!mobileSwingActive || event.pointerId !== mobileSwingPointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const now = performance.now();
+      const deltaX = event.clientX - mobileSwingLastX;
+      const deltaY = event.clientY - mobileSwingLastY;
+      mobileSwingPeakY = Math.max(mobileSwingPeakY, event.clientY);
+
+      if (Math.abs(deltaX) + Math.abs(deltaY) > 0.5) {
+        input.applyTouchSwing(deltaY, deltaX, now);
+      }
+
+      const pull = clamp((mobileSwingPeakY - mobileSwingStartY) / 280, 0, 1);
+      const release = clamp((mobileSwingPeakY - event.clientY) / Math.max(92, mobileSwingPeakY - mobileSwingStartY), 0, 1);
+      setMobileSwingUi(pull, release, true);
+      mobileSwingLastX = event.clientX;
+      mobileSwingLastY = event.clientY;
+      mobileSwingLastAt = now;
+    };
+
+    const finishMobileSwing = (event?: PointerEvent) => {
+      if (!mobileSwingActive) {
+        return;
+      }
+
+      const now = performance.now();
+      if (event && event.pointerId === mobileSwingPointerId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const releaseTravel = Math.max(0, mobileSwingPeakY - event.clientY);
+        const releaseVelocity = Math.max(0, (mobileSwingLastY - event.clientY) / Math.max(12, now - mobileSwingLastAt));
+        if (releaseTravel > 18) {
+          const forwardDelta = Math.max(34, releaseTravel * 0.52 + releaseVelocity * 56);
+          input.applyTouchSwing(-forwardDelta, event.clientX - mobileSwingLastX, now);
+          input.releaseTouchSwing(now);
+        }
+        if (mobileSwingZone?.hasPointerCapture(event.pointerId)) {
+          mobileSwingZone.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      mobileSwingActive = false;
+      mobileSwingPointerId = -1;
+      setMobileSwingUi(0, 0, false);
+    };
+
+    const nudgeMobileAim = (direction: -1 | 1) => {
+      if (!propsRef.current.active || ball.moving || holed) {
+        return false;
+      }
+
+      propsRef.current.onControlKey(direction < 0 ? "Mobile Aim Left" : "Mobile Aim Right");
+      aimAngle = normalizeAngle(aimAngle + direction * 0.044);
+      emitHud(true);
+      return true;
+    };
+
+    const stopMobileAim = () => {
+      if (mobileAimInterval !== 0) {
+        window.clearInterval(mobileAimInterval);
+        mobileAimInterval = 0;
+      }
+    };
+
+    const startMobileAim = (direction: -1 | 1, event: PointerEvent) => {
+      if (event.pointerType === "mouse") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      stopMobileAim();
+      nudgeMobileAim(direction);
+      mobileAimInterval = window.setInterval(() => {
+        if (!nudgeMobileAim(direction)) {
+          stopMobileAim();
+        }
+      }, 72);
+    };
+
+    if (mobileSwingZone) {
+      mobileSwingZone.addEventListener("pointerdown", handleMobileSwingPointerDown);
+      window.addEventListener("pointermove", handleMobileSwingPointerMove);
+      window.addEventListener("pointerup", finishMobileSwing);
+      window.addEventListener("pointercancel", finishMobileSwing);
+      mobileControlCleanups.push(() => {
+        mobileSwingZone.removeEventListener("pointerdown", handleMobileSwingPointerDown);
+        window.removeEventListener("pointermove", handleMobileSwingPointerMove);
+        window.removeEventListener("pointerup", finishMobileSwing);
+        window.removeEventListener("pointercancel", finishMobileSwing);
+      });
+    }
+
+    if (mobileAimLeft) {
+      const handleAimLeftPointerDown = (event: PointerEvent) => startMobileAim(-1, event);
+      mobileAimLeft.addEventListener("pointerdown", handleAimLeftPointerDown);
+      mobileControlCleanups.push(() => mobileAimLeft.removeEventListener("pointerdown", handleAimLeftPointerDown));
+    }
+
+    if (mobileAimRight) {
+      const handleAimRightPointerDown = (event: PointerEvent) => startMobileAim(1, event);
+      mobileAimRight.addEventListener("pointerdown", handleAimRightPointerDown);
+      mobileControlCleanups.push(() => mobileAimRight.removeEventListener("pointerdown", handleAimRightPointerDown));
+    }
+
+    window.addEventListener("pointerup", stopMobileAim);
+    window.addEventListener("pointercancel", stopMobileAim);
+    mobileControlCleanups.push(() => {
+      stopMobileAim();
+      window.removeEventListener("pointerup", stopMobileAim);
+      window.removeEventListener("pointercancel", stopMobileAim);
+    });
 
     window.addEventListener("resize", resize);
     window.addEventListener("keydown", handleKeyDown);
@@ -2016,10 +2188,34 @@ export function GolfScene(props: GolfSceneProps) {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       container.removeEventListener("pointerdown", handlePointerDown);
+      for (const cleanupMobileControls of mobileControlCleanups) {
+        cleanupMobileControls();
+      }
       disposeScene(scene, renderer);
       renderer.domElement.remove();
     };
   }, []);
 
-  return <div aria-label="Scroll Tee 3D golf course" className="scene-wrap" ref={containerRef} tabIndex={0} />;
+  return (
+    <div aria-label="Scroll Tee 3D golf course" className="scene-wrap" ref={containerRef} tabIndex={0}>
+      <div className="scene-canvas-layer" ref={canvasHostRef} />
+      <div className="mobile-touch-controls" aria-label="Mobile touch controls">
+        <div className="mobile-aim-pad" aria-label="Aim controls">
+          <button aria-label="Aim left" ref={mobileAimLeftRef} type="button">
+            &lt;
+          </button>
+          <span>Aim</span>
+          <button aria-label="Aim right" ref={mobileAimRightRef} type="button">
+            &gt;
+          </button>
+        </div>
+        <div className="mobile-swing-zone" ref={mobileSwingZoneRef} role="application" aria-label="Touch swing zone">
+          <div className="mobile-swing-fill" aria-hidden="true" />
+          <div className="mobile-swing-release" aria-hidden="true" />
+          <strong>Pull</strong>
+          <span>Swipe up to swing</span>
+        </div>
+      </div>
+    </div>
+  );
 }

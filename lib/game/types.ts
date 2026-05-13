@@ -27,7 +27,7 @@ export type SwingPhase =
   | "BALL_STOPPED"
   | "HOLED";
 
-export type DeviceGuess = "wheel" | "touchpad" | "keyboard";
+export type DeviceGuess = "wheel" | "touchpad" | "keyboard" | "touch";
 
 export type CameraMode = "auto" | "follow" | "pin";
 

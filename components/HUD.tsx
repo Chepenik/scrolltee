@@ -1,6 +1,6 @@
 "use client";
 
-import { CLUB_BY_ID, shotTypeLabel, spinLabel } from "@/lib/game/clubs";
+import { CLUBS, CLUB_BY_ID, shotTypeLabel, spinLabel } from "@/lib/game/clubs";
 import { lieName } from "@/lib/game/course";
 import { formatYards } from "@/lib/game/math";
 import { windAimHint } from "@/lib/game/wind";
@@ -180,6 +180,132 @@ export function HUD({
       </div>
 
       <div />
+
+      <section className="mobile-hud-tray" aria-label="Mobile shot controls">
+        <div className="mobile-status-strip">
+          <div>
+            <small>Pin</small>
+            <strong>{formatYards(hud.distanceToPin)}</strong>
+          </div>
+          <div>
+            <small>Lie</small>
+            <strong>{lieName(hud.surface)}</strong>
+          </div>
+          <div>
+            <small>Wind</small>
+            <strong>{compactWindHint(windHint)}</strong>
+          </div>
+          <div>
+            <small>Aim</small>
+            <strong>{hud.aimDegrees.toFixed(0)} deg</strong>
+          </div>
+        </div>
+
+        <div className="mobile-shot-row" aria-label="Shot type">
+          {SHOT_TYPES.map((shotType) => (
+            <button
+              className={`chip-button ${hud.shotType === shotType ? "is-active" : ""}`}
+              disabled={controlsLocked || (shotType === "putt" && selectedClubId !== "putter")}
+              key={shotType}
+              onClick={() => onShotTypeSelect(shotType)}
+              type="button"
+            >
+              {shotTypeLabel(shotType)}
+            </button>
+          ))}
+        </div>
+
+        <details className="mobile-setup-details">
+          <summary>
+            <span>Lineup</span>
+            <strong>
+              {selectedClub.shortName} / {spinRead}
+            </strong>
+          </summary>
+          <label className="setup-slider">
+            <span>
+              Face <strong>{hud.stanceOffset > 0.05 ? "Draw" : hud.stanceOffset < -0.05 ? "Fade" : "Square"}</strong>
+            </span>
+            <input
+              disabled={controlsLocked}
+              max="1"
+              min="-1"
+              onChange={(event) => onShotSetupChange({ stanceOffset: Number(event.target.value) })}
+              step="0.02"
+              type="range"
+              value={hud.stanceOffset}
+            />
+          </label>
+          <label className="setup-slider">
+            <span>
+              Ball <strong>{hud.ballForward > 0.05 ? "Forward" : hud.ballForward < -0.05 ? "Back" : "Center"}</strong>
+            </span>
+            <input
+              disabled={controlsLocked}
+              max="1"
+              min="-1"
+              onChange={(event) => onShotSetupChange({ ballForward: Number(event.target.value) })}
+              step="0.02"
+              type="range"
+              value={hud.ballForward}
+            />
+          </label>
+          <label className="setup-slider">
+            <span>
+              Spin <strong>{spinLabel(hud.spin)}</strong>
+            </span>
+            <input
+              disabled={controlsLocked}
+              max="1"
+              min="-1"
+              onChange={(event) => onShotSetupChange({ spin: Number(event.target.value) })}
+              step="0.02"
+              type="range"
+              value={hud.spin}
+            />
+          </label>
+          <button className="ui-button setup-reset" disabled={controlsLocked} onClick={onResetShotSetup} type="button">
+            Reset Alignment
+          </button>
+        </details>
+
+        <div className="mobile-club-scroll" aria-label="Club selector">
+          {CLUBS.map((club) => (
+            <button
+              className={`mobile-club-button club-button-${club.category} ${selectedClubId === club.id ? "is-active" : ""}`}
+              disabled={controlsLocked}
+              key={club.id}
+              onClick={() => onClubSelect(club.id)}
+              title={`${club.key}. ${club.name}`}
+              type="button"
+            >
+              <strong>{club.shortName}</strong>
+              <span>{club.maxDistance}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mobile-actions">
+          <button className="ui-button primary" disabled={!hud.holed || hud.roundComplete} onClick={onNextHole} type="button">
+            Next
+          </button>
+          <button className="ui-button" onClick={onRestartHole} type="button">
+            Hole
+          </button>
+          <button className="ui-button" onClick={onRestartRound} type="button">
+            Round
+          </button>
+          <button className="ui-button" onClick={onCameraToggle} type="button">
+            Cam
+          </button>
+          <button className="ui-button" onClick={onSettingsToggle} type="button">
+            {settingsOpen ? "Hide" : "Tune"}
+          </button>
+          <button className="ui-button" onClick={onPauseToggle} type="button">
+            {paused ? "Resume" : "Pause"}
+          </button>
+        </div>
+      </section>
 
       <div className="bottom-rail">
         <section className="panel setup-card" aria-label="Shot setup">

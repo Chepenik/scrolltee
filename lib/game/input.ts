@@ -33,6 +33,8 @@ const BACKSWING_PIXELS = 620;
 const FORWARD_VELOCITY_TARGET = 1.45;
 const STRIKE_FORWARD_PIXELS = 72;
 const DOWNSWING_WINDOW_MS = 150;
+const TOUCH_SWING_SCALE = 1.35;
+const TOUCH_LATERAL_SCALE = 0.9;
 
 export class TrackballInput {
   private readonly element: HTMLElement;
@@ -124,6 +126,49 @@ export class TrackballInput {
       spin: this.spin,
       smoothness: this.smoothness
     };
+  }
+
+  startTouchSwing(now = performance.now()) {
+    if (!this.options.canSwing() || now < this.lockedUntil) {
+      return false;
+    }
+
+    this.device = "touch";
+    this.lastKey = "Touch";
+    this.lastInputAt = now;
+    this.emit();
+    return true;
+  }
+
+  applyTouchSwing(deltaY: number, deltaX: number, now = performance.now()) {
+    if (!this.options.canSwing() || now < this.lockedUntil) {
+      return false;
+    }
+
+    const settings = this.options.getSettings();
+    const direction = settings.invertSwing ? -1 : 1;
+    const sensitivity = settings.sensitivity;
+    const dy = deltaY * direction * sensitivity * TOUCH_SWING_SCALE;
+    const dx = deltaX * sensitivity * TOUCH_LATERAL_SCALE;
+
+    this.device = "touch";
+    this.lastRawDeltaY = deltaY;
+    this.applyScroll(dy, dx, now);
+    return true;
+  }
+
+  releaseTouchSwing(now = performance.now()) {
+    if (!this.options.canSwing() || now < this.lockedUntil) {
+      return false;
+    }
+
+    if (this.phase === "DOWNSWING") {
+      const forced = this.forwardAccum < STRIKE_FORWARD_PIXELS && this.downswingVelocity <= 0.78;
+      this.strike(now, forced);
+      return true;
+    }
+
+    return false;
   }
 
   private handleWheel = (event: WheelEvent) => {
