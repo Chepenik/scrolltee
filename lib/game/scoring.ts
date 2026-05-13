@@ -3,16 +3,15 @@ import { DEFAULT_HOLE, distanceToCup } from "./course";
 import type { HoleConfig } from "./holes";
 import type { Club, ShotSetup, ShotType, SurfaceType, SwingStrike, WindState } from "./types";
 
-const SOLID_LINES = ["SMOKED IT", "PIN HUNTING", "SENT IT", "TRACKBALL ROCKET", "COIN SLOT CANNON"];
-const CURVE_LINES = ["BABY DRAW", "SCROLL FADE", "SIDEWAYS SAUCE", "BANANA BALL"];
-const WEAK_LINES = ["DINK", "BREAK ROOM BUNT", "HALF-SCROLLED", "TAP TAP TRAGEDY"];
+const SOLID_LINES = ["CLEAN STRIKE", "FULL POWER", "PIN HUNTING", "CENTER FACE", "GOOD LAUNCH"];
+const WEAK_LINES = ["LOW POWER", "SHORT SWING", "SOFT CONTACT", "HALF SWING"];
 const PATH_LINES = ["CART PATH HERO", "CONCRETE BONUS"];
 const GREEN_LINES = ["DANCE FLOOR", "PUTTING FOR GLORY"];
-const FLOP_LINES = ["SKY POP", "FLOP CITY", "ELEVATOR MUSIC"];
-const PUNCH_LINES = ["STINGER", "LOW LASER", "PUNCH TICKET"];
-const CHIP_LINES = ["CHIP CHECK", "SAUCY LITTLE CHIP", "BUMP AND RUN"];
-const BACKSPIN_LINES = ["BACKSPIN BITE", "ZIP SAUCE", "CHECK MARK"];
-const TOPSPIN_LINES = ["TOPSPIN RUNNER", "FAIRWAY SKIP", "GREEN LIGHT"];
+const FLOP_LINES = ["HIGH FLOP", "SOFT LANDING", "SKY POP"];
+const PUNCH_LINES = ["LOW PUNCH", "WIND CUTTER", "RUNNING PUNCH"];
+const CHIP_LINES = ["CHIP CHECK", "BUMP AND RUN", "CONTROLLED CHIP"];
+const BACKSPIN_LINES = ["BACKSPIN BITE", "CHECK SPIN", "SHORT ROLLOUT"];
+const TOPSPIN_LINES = ["TOPSPIN RUNNER", "EXTRA ROLLOUT", "GREEN LIGHT"];
 
 function pick(lines: string[]) {
   return lines[Math.floor(Math.random() * lines.length)];
@@ -64,8 +63,12 @@ export function shotFeedback(
     return pick(TOPSPIN_LINES);
   }
 
-  if (Math.abs(strike.spin) > 0.38) {
-    return pick(CURVE_LINES);
+  if (strike.spin < -0.38) {
+    return "LEFT CURVE";
+  }
+
+  if (strike.spin > 0.38) {
+    return "RIGHT CURVE";
   }
 
   if (surface === "green") {
@@ -77,7 +80,7 @@ export function shotFeedback(
   }
 
   if (strike.mishit > 0.48) {
-    return "SPICY CONTACT";
+    return "MISHIT - CHECK FACE";
   }
 
   return "GOOD THUMP";

@@ -10,16 +10,28 @@ type ClubSelectorProps = {
 };
 
 export function ClubSelector({ selectedClubId, disabled, onSelect }: ClubSelectorProps) {
+  const selectedClub = CLUBS.find((club) => club.id === selectedClubId) ?? CLUBS[0];
+  const categoryLabel =
+    selectedClub.category === "wood"
+      ? "Wood"
+      : selectedClub.category === "iron"
+        ? "Iron"
+        : selectedClub.category === "wedge"
+          ? "Wedge"
+          : "Putter";
+
   return (
     <section className="panel club-selector" aria-label="Club selector">
       <div className="selector-header">
         <span>Club Bag</span>
-        <strong>[ / ] cycle</strong>
+        <strong>
+          {selectedClub.shortName} {categoryLabel} / [ / ] cycle
+        </strong>
       </div>
       <div className="club-buttons">
         {CLUBS.map((club) => (
           <button
-            className={`club-button ${selectedClubId === club.id ? "is-active" : ""}`}
+            className={`club-button club-button-${club.category} ${selectedClubId === club.id ? "is-active" : ""}`}
             disabled={disabled}
             key={club.id}
             onClick={() => onSelect(club.id)}

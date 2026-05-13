@@ -386,6 +386,16 @@ kbd {
   border-color: rgba(111, 243, 168, 0.75);
 }
 
+.club-button-wood.is-active {
+  background: rgba(105, 210, 255, 0.2);
+  border-color: rgba(105, 210, 255, 0.75);
+}
+
+.club-button-wedge.is-active {
+  background: rgba(255, 224, 138, 0.2);
+  border-color: rgba(255, 224, 138, 0.78);
+}
+
 .club-button strong {
   font-size: 12px;
   line-height: 1;
@@ -466,6 +476,40 @@ kbd {
 
 .wind-read strong {
   color: var(--cyan);
+}
+
+.shot-read-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.shot-read-grid div {
+  min-width: 0;
+  padding: 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.shot-read-grid small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.shot-read-grid strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .estimate-grid {
@@ -743,6 +787,140 @@ kbd {
   100% {
     opacity: 0;
     transform: translate(-50%, -125%) scale(1.08);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 981px) {
+  .hud {
+    padding: 12px 18px;
+    gap: 8px;
+  }
+
+  .top-rail {
+    grid-template-columns: 330px minmax(260px, 1fr);
+    gap: 10px;
+  }
+
+  .help-card {
+    display: none;
+  }
+
+  .score-card,
+  .setup-card,
+  .swing-meter,
+  .club-selector,
+  .action-card {
+    padding: 10px;
+  }
+
+  .brand-row {
+    margin-bottom: 7px;
+  }
+
+  .brand-row h1 {
+    font-size: 26px;
+  }
+
+  .hole-name {
+    margin-bottom: 7px;
+  }
+
+  .score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .metric {
+    padding: 7px;
+  }
+
+  .metric small,
+  .debug-row span:first-child {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .metric strong {
+    font-size: 17px;
+  }
+
+  .wind-metric strong {
+    gap: 4px;
+    font-size: 14px;
+  }
+
+  .shot-banner {
+    padding: 10px 14px;
+  }
+
+  .shot-banner strong {
+    font-size: clamp(24px, 3vw, 42px);
+  }
+
+  .bottom-rail {
+    grid-template-columns: minmax(250px, 300px) minmax(280px, 330px) minmax(390px, 1fr) minmax(214px, 232px);
+    gap: 10px;
+  }
+
+  .meter-header,
+  .selector-header {
+    margin-bottom: 7px;
+  }
+
+  .meter-track {
+    height: 24px;
+  }
+
+  .meter-readout {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .meter-readout span {
+    padding: 6px 5px;
+  }
+
+  .club-button {
+    height: 42px;
+    padding: 5px;
+  }
+
+  .chip-button {
+    min-height: 30px;
+    padding: 0 6px;
+  }
+
+  .setup-slider {
+    gap: 3px;
+    margin-top: 5px;
+  }
+
+  .shot-read-grid {
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .shot-read-grid div,
+  .estimate-grid div {
+    padding: 6px;
+  }
+
+  .estimate-grid {
+    gap: 5px;
+    margin-top: 7px;
+  }
+
+  .setup-reset {
+    margin-top: 6px;
+  }
+
+  .ui-button {
+    min-height: 36px;
+    font-size: 13px;
+  }
+
+  .action-card {
+    gap: 8px;
   }
 }
 

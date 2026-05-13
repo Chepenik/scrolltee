@@ -2,7 +2,7 @@
 
 Scroll Tee is an original browser arcade golf game built with Next.js, TypeScript, and Three.js. It uses mouse wheel and touchpad scroll input as a virtual trackball: scroll down to pull back, then scroll up fast to strike.
 
-The game is an 18-hole arcade round with procedural lightweight course geometry, an expanded club bag, shot types, wind, pre-shot spin and lineup controls, flagstick interaction, scorecard flow, fairway boost strips, shot trails, cup bursts, wind streamers, and soft-lock guards around ball physics.
+The game is an 18-hole arcade round with procedural lightweight course geometry, an expanded club bag, shot types, wind, pre-shot spin and lineup controls, flagstick interaction, scorecard flow, fairway boost strips, shot trails, cup bursts, wind streamers, visible club-head changes, and soft-lock guards around ball physics.
 
 ## Run Locally
 
@@ -46,7 +46,7 @@ npm audit --audit-level=moderate
 
 Driver, 3 Wood, 5 Wood, 3 Iron, 4 Iron, 5 Iron, 6 Iron, 7 Iron, 8 Iron, 9 Iron, Pitching Wedge, Sand Wedge, Lob Wedge, and Putter.
 
-Auto-club selection runs after each stopped shot based on distance and lie, but manual selection always overrides it before the next swing.
+Auto-club selection runs after each stopped shot based on distance and lie, but manual selection always overrides it before the next swing. The club beside the ball changes head shape as you move between woods, irons, wedges, and the putter.
 
 ## Shot Types
 
@@ -68,7 +68,7 @@ Each hole has readable arcade wind with slight per-shot variation. Wind only aff
 
 Backspin shortens carry a little, increases stopping power, bites harder on greens, and can zip wedges back. Topspin lowers the flight tendency and adds rollout, especially on drives, punch shots, and running approaches.
 
-Shot trails now change color and sparkle by shot type and spin. Wind streamers show the current wind direction over the course, boost strips pulse on the turf, and holed shots trigger a lightweight procedural ring and particle burst.
+Shot trails now change color and sparkle by shot type and spin. Wind streamers and a small floating wind arrow show the current wind direction over the course, boost strips pulse on the turf, landings throw a quick procedural impact ring, and holed shots trigger a lightweight procedural ring and particle burst.
 
 ## Code Map
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { shotTypeLabel, spinLabel } from "@/lib/game/clubs";
+import { CLUB_BY_ID, shotTypeLabel, spinLabel } from "@/lib/game/clubs";
 import { lieName } from "@/lib/game/course";
 import { formatYards } from "@/lib/game/math";
 import { windAimHint } from "@/lib/game/wind";
@@ -25,6 +25,25 @@ type HUDProps = {
   onResetShotSetup: () => void;
 };
 
+const SHOT_TYPES: ShotType[] = ["normal", "punch", "flop", "chip", "putt"];
+const FLIGHT_READ: Record<ShotType, string> = {
+  normal: "Mid",
+  punch: "Low cut",
+  flop: "High soft",
+  chip: "Run-up",
+  putt: "Ground"
+};
+
+function compactWindHint(hint: string) {
+  if (hint === "Neutral") {
+    return "Calm";
+  }
+
+  const prefix = hint.startsWith("Helping") ? "H" : hint.startsWith("Into") ? "I" : "X";
+  const side = hint.endsWith("right") ? " R" : hint.endsWith("left") ? " L" : "";
+  return `${prefix}${side}`;
+}
+
 export function HUD({
   hud,
   selectedClubId,
@@ -43,8 +62,16 @@ export function HUD({
 }: HUDProps) {
   const controlsLocked = hud.phase === "BALL_FLIGHT" || hud.phase === "HOLED";
   const scoreToPar = hud.roundScore === 0 ? "E" : hud.roundScore > 0 ? `+${hud.roundScore}` : `${hud.roundScore}`;
-  const shotTypes: ShotType[] = ["normal", "punch", "flop", "chip", "putt"];
   const windHint = windAimHint(hud.wind, (hud.aimDegrees * Math.PI) / 180);
+  const selectedClub = CLUB_BY_ID[selectedClubId];
+  const spinRead =
+    hud.shotType === "putt"
+      ? "Pace"
+      : hud.spin < -0.22
+        ? "Bite"
+        : hud.spin > 0.22
+          ? "Run"
+          : "Stock";
 
   return (
     <div className="hud" aria-label="Game HUD">
@@ -161,7 +188,7 @@ export function HUD({
             <strong>{shotTypeLabel(hud.shotType)}</strong>
           </div>
           <div className="shot-type-row">
-            {shotTypes.map((shotType) => (
+            {SHOT_TYPES.map((shotType) => (
               <button
                 className={`chip-button ${hud.shotType === shotType ? "is-active" : ""}`}
                 disabled={controlsLocked || (shotType === "putt" && selectedClubId !== "putter")}
@@ -215,9 +242,23 @@ export function HUD({
               value={hud.spin}
             />
           </label>
-          <div className="wind-read">
-            <span>Wind read</span>
-            <strong>{windHint}</strong>
+          <div className="shot-read-grid">
+            <div>
+              <small>Wind</small>
+              <strong>{compactWindHint(windHint)}</strong>
+            </div>
+            <div>
+              <small>Club</small>
+              <strong>{selectedClub.shortName}</strong>
+            </div>
+            <div>
+              <small>Flight</small>
+              <strong>{FLIGHT_READ[hud.shotType]}</strong>
+            </div>
+            <div>
+              <small>Spin</small>
+              <strong>{spinRead}</strong>
+            </div>
           </div>
           <div className="estimate-grid">
             <div>

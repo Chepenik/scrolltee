@@ -62,6 +62,14 @@ const TRAIL_MOTE_COUNT = 42;
 const WIND_STREAM_COUNT = 26;
 const CUP_PARTICLE_COUNT = 34;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const IMPACT_COLORS: Record<SurfaceType, string> = {
+  tee: "#fff1a6",
+  fairway: "#d9ffd8",
+  rough: "#6ff3a8",
+  green: "#f8fbf4",
+  sand: "#ffe0a3",
+  cart: "#d5dde1"
+};
 
 function colorForSurface(surface: SurfaceType, x: number, z: number) {
   const color = new THREE.Color(SURFACE_COLORS[surface]);
@@ -295,6 +303,133 @@ function createBallMesh() {
   return ball;
 }
 
+function createFaceGrooves(width: number, rows: number, z: number) {
+  const positions: number[] = [];
+  for (let i = 0; i < rows; i += 1) {
+    const y = -0.24 + i * (0.48 / Math.max(1, rows - 1));
+    positions.push(-width / 2, y, z, width / 2, y, z);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({
+      color: "#1f2930",
+      transparent: true,
+      opacity: 0.45
+    })
+  );
+}
+
+function createClubVisual() {
+  const group = new THREE.Group();
+  group.visible = false;
+
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.095, 13.4, 8),
+    new THREE.MeshStandardMaterial({ color: "#d7e1df", roughness: 0.34, metalness: 0.48 })
+  );
+  shaft.position.set(2.1, 6.25, -4.7);
+  shaft.rotation.x = -0.22;
+  shaft.rotation.z = -0.2;
+  shaft.castShadow = true;
+  group.add(shaft);
+
+  const grip = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.14, 2.4, 10),
+    new THREE.MeshStandardMaterial({ color: "#15211f", roughness: 0.74 })
+  );
+  grip.position.set(0.88, 12.75, -6.15);
+  grip.rotation.x = -0.22;
+  grip.rotation.z = -0.2;
+  grip.castShadow = true;
+  group.add(grip);
+
+  const heads: Record<"wood" | "iron" | "wedge" | "putter", THREE.Group> = {
+    wood: new THREE.Group(),
+    iron: new THREE.Group(),
+    wedge: new THREE.Group(),
+    putter: new THREE.Group()
+  };
+
+  const woodBody = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 22, 14),
+    new THREE.MeshStandardMaterial({ color: "#223d48", roughness: 0.42, metalness: 0.16 })
+  );
+  woodBody.scale.set(2.2, 0.74, 1.5);
+  woodBody.position.set(2.32, 0.74, -2.62);
+  woodBody.rotation.y = -0.36;
+  woodBody.castShadow = true;
+  heads.wood.add(woodBody);
+
+  const woodFace = new THREE.Mesh(
+    new THREE.BoxGeometry(1.58, 0.72, 0.13),
+    new THREE.MeshStandardMaterial({ color: "#dce8e7", roughness: 0.38, metalness: 0.32 })
+  );
+  woodFace.position.set(0.86, 0.7, -2.18);
+  woodFace.rotation.y = 0.62;
+  woodFace.castShadow = true;
+  heads.wood.add(woodFace);
+
+  const ironFace = new THREE.Mesh(
+    new THREE.BoxGeometry(3.15, 1.08, 0.32),
+    new THREE.MeshStandardMaterial({ color: "#c9d3d2", roughness: 0.28, metalness: 0.52 })
+  );
+  ironFace.position.set(1.92, 0.72, -2.42);
+  ironFace.rotation.y = -0.42;
+  ironFace.rotation.z = -0.08;
+  ironFace.castShadow = true;
+  heads.iron.add(ironFace);
+  const ironGrooves = createFaceGrooves(2.46, 4, -2.2);
+  ironGrooves.position.set(1.91, 0.73, 0);
+  ironGrooves.rotation.y = -0.42;
+  ironGrooves.rotation.z = -0.08;
+  heads.iron.add(ironGrooves);
+
+  const wedgeFace = new THREE.Mesh(
+    new THREE.BoxGeometry(2.85, 1.24, 0.38),
+    new THREE.MeshStandardMaterial({ color: "#eff5ef", roughness: 0.32, metalness: 0.45 })
+  );
+  wedgeFace.position.set(1.88, 0.78, -2.38);
+  wedgeFace.rotation.x = -0.18;
+  wedgeFace.rotation.y = -0.46;
+  wedgeFace.rotation.z = -0.1;
+  wedgeFace.castShadow = true;
+  heads.wedge.add(wedgeFace);
+  const wedgeGrooves = createFaceGrooves(2.18, 5, -2.16);
+  wedgeGrooves.position.set(1.86, 0.82, 0);
+  wedgeGrooves.rotation.x = -0.18;
+  wedgeGrooves.rotation.y = -0.46;
+  wedgeGrooves.rotation.z = -0.1;
+  heads.wedge.add(wedgeGrooves);
+
+  const putterHead = new THREE.Mesh(
+    new THREE.BoxGeometry(4.2, 0.52, 0.95),
+    new THREE.MeshStandardMaterial({ color: "#243335", roughness: 0.46, metalness: 0.28 })
+  );
+  putterHead.position.set(2.12, 0.45, -2.52);
+  putterHead.castShadow = true;
+  heads.putter.add(putterHead);
+  const putterFace = new THREE.Mesh(
+    new THREE.BoxGeometry(4.26, 0.34, 0.08),
+    new THREE.MeshStandardMaterial({ color: "#f8fbf4", roughness: 0.42, metalness: 0.22 })
+  );
+  putterFace.position.set(2.12, 0.45, -1.99);
+  heads.putter.add(putterFace);
+
+  for (const head of Object.values(heads)) {
+    head.visible = false;
+    group.add(head);
+  }
+
+  return {
+    group,
+    heads,
+    activeCategory: "" as "wood" | "iron" | "wedge" | "putter" | ""
+  };
+}
+
 function createShotLine() {
   const positions = new Float32Array(30 * 3);
   const geometry = new THREE.BufferGeometry();
@@ -430,6 +565,21 @@ function createHoleBurst() {
   burst.rotation.x = -Math.PI / 2;
   burst.visible = false;
   return burst;
+}
+
+function createImpactPulse(color: string) {
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const pulse = new THREE.Mesh(new THREE.RingGeometry(0.72, 1, 72), material);
+  pulse.rotation.x = -Math.PI / 2;
+  pulse.visible = false;
+
+  return { pulse, material };
 }
 
 function createCupParticles() {
@@ -612,8 +762,15 @@ export function GolfScene(props: GolfSceneProps) {
     const ballMesh = createBallMesh();
     scene.add(ballMesh);
 
+    const clubVisual = createClubVisual();
+    scene.add(clubVisual.group);
+
     const aimArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1.5, 0), 55, "#ffe08a", 7, 4);
     scene.add(aimArrow);
+
+    const windVane = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 9, 0), 16, "#69d2ff", 3.4, 2.2);
+    windVane.visible = false;
+    scene.add(windVane);
 
     const shotLine = createShotLine();
     scene.add(shotLine);
@@ -624,6 +781,12 @@ export function GolfScene(props: GolfSceneProps) {
     const trail = createTrail();
     scene.add(trail.line);
     scene.add(trail.motes);
+
+    const landingPulse = createImpactPulse("#f8fbf4");
+    scene.add(landingPulse.pulse);
+
+    const boostPulse = createImpactPulse("#6ff3a8");
+    scene.add(boostPulse.pulse);
 
     const windStreams = createWindStreams();
     scene.add(windStreams.line);
@@ -637,6 +800,7 @@ export function GolfScene(props: GolfSceneProps) {
     const ballVector = new THREE.Vector3();
     const aimOrigin = new THREE.Vector3();
     const velocityDir = new THREE.Vector3();
+    const windDirectionVector = new THREE.Vector3();
     const trailPointBuffer = Array.from({ length: TRAIL_LENGTH }, () => new THREE.Vector3());
     const trailLastPoint = new THREE.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
     const trailTailColor = new THREE.Color("#6ff3a8");
@@ -668,6 +832,11 @@ export function GolfScene(props: GolfSceneProps) {
     let lastLipOutAt = 0;
     let lastFlagHitAt = 0;
     let holeBurstStartedAt = 0;
+    let landingPulseStartedAt = 0;
+    let boostPulseStartedAt = 0;
+    let landingPulseBaseScale = 1;
+    let boostPulseBaseScaleX = 1;
+    let boostPulseBaseScaleY = 1;
     let lastRestartToken = propsRef.current.restartToken;
     let lastCameraToken = propsRef.current.cameraToken;
     let lowSpeedControlSeconds = 0;
@@ -678,7 +847,8 @@ export function GolfScene(props: GolfSceneProps) {
 
     const emitHud = (force = false) => {
       const now = performance.now();
-      if (!force && now - lastHudAt < 100) {
+      const hudInterval = phase === "BACKSWING" || phase === "DOWNSWING" ? 45 : ball.moving ? 85 : 110;
+      if (!force && now - lastHudAt < hudInterval) {
         return;
       }
       const [x, , z] = ball.position;
@@ -844,7 +1014,11 @@ export function GolfScene(props: GolfSceneProps) {
       lastFlagHitAt = 0;
       lastBounceAt = 0;
       holeBurstStartedAt = 0;
+      landingPulseStartedAt = 0;
+      boostPulseStartedAt = 0;
       holeBurst.visible = false;
+      landingPulse.pulse.visible = false;
+      boostPulse.pulse.visible = false;
       cupParticles.points.visible = false;
       cupParticles.material.opacity = 0;
       aimAngle = Math.atan2(activeHole.cupPosition.x - activeHole.teePosition.x, activeHole.cupPosition.z - activeHole.teePosition.z);
@@ -903,11 +1077,12 @@ export function GolfScene(props: GolfSceneProps) {
         emitHud(true);
       },
       onUpdate: (snapshot) => {
+        const phaseChanged = snapshot.phase !== swingSnapshot.phase;
         swingSnapshot = snapshot;
         if (!ball.moving && !holed) {
           phase = snapshot.phase;
         }
-        emitHud(true);
+        emitHud(phaseChanged || snapshot.phase === "STRIKE");
       }
     });
 
@@ -1019,6 +1194,93 @@ export function GolfScene(props: GolfSceneProps) {
       moteMaterial.size = shotType === "flop" ? 1.05 : shotType === "punch" ? 0.62 : 0.82;
       moteMaterial.opacity = setup.spin === 0 ? 0.36 : clamp(0.42 + Math.abs(setup.spin) * 0.2, 0.42, 0.64);
       material.opacity = shotType === "flop" ? 0.94 : 0.88;
+    };
+
+    const updateClubVisual = (now: number) => {
+      const club = CLUB_BY_ID[activeClubId] ?? CLUB_BY_ID.driver;
+      const category = club.category;
+
+      if (clubVisual.activeCategory !== category) {
+        for (const [headCategory, head] of Object.entries(clubVisual.heads)) {
+          head.visible = headCategory === category;
+        }
+        clubVisual.activeCategory = category;
+      }
+
+      const [x, , z] = ball.position;
+      const groundY = terrainHeightAt(x, z, activeHole);
+      const idleBob = Math.sin(now * 0.004) * 0.025;
+      const backswingLift = phase === "BACKSWING" ? swingSnapshot.backswing * 0.58 : phase === "DOWNSWING" ? -swingSnapshot.power * 0.24 : 0;
+
+      clubVisual.group.visible = !ball.moving && !holed;
+      clubVisual.group.position.set(x, groundY + idleBob, z);
+      clubVisual.group.rotation.set(0, aimAngle, backswingLift);
+      clubVisual.group.scale.setScalar(category === "putter" ? 0.86 : category === "wood" ? 1 : 0.94);
+    };
+
+    const updateWindVane = () => {
+      const wind = ball.moving ? activeWind : windForShot(activeHole, strokes + 1);
+      if (wind.speed < 2.5 || holed) {
+        windVane.visible = false;
+        return;
+      }
+
+      const direction = (wind.directionDeg * Math.PI) / 180;
+      windDirectionVector.set(Math.sin(direction), 0, Math.cos(direction)).normalize();
+      const [x, , z] = ball.position;
+      const groundY = terrainHeightAt(x, z, activeHole);
+      const sideX = Math.cos(aimAngle);
+      const sideZ = -Math.sin(aimAngle);
+      windVane.position.set(x + sideX * 8.5, groundY + 9.8, z + sideZ * 8.5);
+      windVane.setDirection(windDirectionVector);
+      windVane.setLength(clamp(10 + wind.speed * 0.82, 10, 24), 3.4, 2.2);
+      windVane.setColor(wind.speed >= 12 ? "#ff795d" : wind.speed >= 7 ? "#fff1a6" : "#69d2ff");
+      windVane.visible = !ball.moving || ball.airborne;
+    };
+
+    const triggerLandingPulse = (surface: SurfaceType, speed: number, now: number) => {
+      const [x, , z] = ball.position;
+      const pulseScale = clamp(2.1 + speed * 0.045 + Math.abs(lastShotSetup.spin) * 0.9, 2.1, 6.4);
+      landingPulseBaseScale = pulseScale;
+      landingPulse.material.color.set(IMPACT_COLORS[surface] ?? "#f8fbf4");
+      landingPulse.material.opacity = surface === "sand" ? 0.62 : 0.72;
+      landingPulse.pulse.position.set(x, terrainHeightAt(x, z, activeHole) + 0.18, z);
+      landingPulse.pulse.scale.setScalar(pulseScale);
+      landingPulse.pulse.visible = true;
+      landingPulseStartedAt = now;
+    };
+
+    const triggerBoostPulse = (x: number, z: number, rx: number, rz: number, now: number) => {
+      boostPulse.material.opacity = 0.82;
+      boostPulseBaseScaleX = rx * 1.05;
+      boostPulseBaseScaleY = rz * 1.05;
+      boostPulse.pulse.position.set(x, terrainHeightAt(x, z, activeHole) + 0.24, z);
+      boostPulse.pulse.scale.set(boostPulseBaseScaleX, boostPulseBaseScaleY, 1);
+      boostPulse.pulse.visible = true;
+      boostPulseStartedAt = now;
+    };
+
+    const updateImpactPulses = (now: number) => {
+      if (landingPulse.pulse.visible) {
+        const age = (now - landingPulseStartedAt) / 1000;
+        const fade = clamp(1 - age / 0.74, 0, 1);
+        landingPulse.material.opacity = fade * 0.72;
+        landingPulse.pulse.scale.setScalar(landingPulseBaseScale * (1 + age * 1.8));
+        if (fade <= 0) {
+          landingPulse.pulse.visible = false;
+        }
+      }
+
+      if (boostPulse.pulse.visible) {
+        const age = (now - boostPulseStartedAt) / 1000;
+        const fade = clamp(1 - age / 0.92, 0, 1);
+        boostPulse.material.opacity = fade * 0.82;
+        boostPulse.pulse.rotation.z = age * 3.6;
+        boostPulse.pulse.scale.set(boostPulseBaseScaleX * (1 + age * 0.34), boostPulseBaseScaleY * (1 + age * 0.34), 1);
+        if (fade <= 0) {
+          boostPulse.pulse.visible = false;
+        }
+      }
     };
 
     const updateFlag = (now: number) => {
@@ -1357,7 +1619,7 @@ export function GolfScene(props: GolfSceneProps) {
       emitHud(true);
     };
 
-    const handleBoostZone = () => {
+    const handleBoostZone = (now: number) => {
       if (boostUsedThisShot || holed || ball.airborne) {
         return;
       }
@@ -1377,6 +1639,7 @@ export function GolfScene(props: GolfSceneProps) {
       ball.rollSpin = Math.max(ball.rollSpin, 0.28);
       ball.settleSeconds = 0;
       shotResult = distanceToCup(x, z, activeHole) > 150 ? "HERO LINE" : "GREEN LIGHT";
+      triggerBoostPulse(boost.x, boost.z, boost.rx, boost.rz, now);
       screenShake = Math.max(screenShake, 0.35);
       audio.playBounce(0.42);
       emitHud(true);
@@ -1552,10 +1815,15 @@ export function GolfScene(props: GolfSceneProps) {
       if (propsRef.current.active && ball.moving && !holed) {
         const previousX = ball.position[0];
         const previousZ = ball.position[2];
+        const wasAirborne = ball.airborne;
         const update = updateBallPhysics(ball, activeHole, dt, propsRef.current.settings.arcadePhysics, activeWind);
-        if (update.bounced && now - lastBounceAt > 130) {
+        const landed = wasAirborne && !ball.airborne;
+        if ((update.bounced || landed) && now - lastBounceAt > 130) {
           lastBounceAt = now;
-          audio.playBounce(Math.min(1, update.speed / 75));
+          triggerLandingPulse(update.surface, update.speed, now);
+          if (update.bounced) {
+            audio.playBounce(Math.min(1, update.speed / 75));
+          }
           if (update.surface === "cart") {
             shotResult = "CART PATH HERO";
             screenShake = Math.max(screenShake, 0.65);
@@ -1563,7 +1831,7 @@ export function GolfScene(props: GolfSceneProps) {
         }
 
         handleFlagstick(now, previousX, previousZ);
-        handleBoostZone();
+        handleBoostZone(now);
         handleCup(now, dt);
 
         if (update.stopped && !holed) {
@@ -1612,6 +1880,9 @@ export function GolfScene(props: GolfSceneProps) {
       updateFlag(now);
       updateBoostZoneVisuals(now);
       updateWindStreams(now);
+      updateWindVane();
+      updateClubVisual(now);
+      updateImpactPulses(now);
       updateHoleBurst(now, dt);
       updateCamera(dt);
       renderer.render(scene, camera);
