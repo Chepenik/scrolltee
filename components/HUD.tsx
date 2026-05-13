@@ -75,6 +75,40 @@ export function HUD({
 
   return (
     <div className="hud" aria-label="Game HUD">
+      <section className="mobile-top-strip" aria-label="Mobile round status">
+        <div className="mobile-hole-pill">
+          <small>
+            Hole {hud.holeNumber}/{hud.holeCount}
+          </small>
+          <strong>Par {hud.par}</strong>
+        </div>
+        <div>
+          <small>Stroke</small>
+          <strong>{hud.strokes}</strong>
+        </div>
+        <div>
+          <small>Pin</small>
+          <strong>{formatYards(hud.distanceToPin)}</strong>
+        </div>
+        <div>
+          <small>Wind</small>
+          <strong>
+            {hud.wind.speed.toFixed(0)} {compactWindHint(windHint)}
+          </strong>
+        </div>
+        <div className="mobile-setup-pill">
+          <small>{selectedClub.shortName}</small>
+          <strong>
+            {shotTypeLabel(hud.shotType)} / {spinRead}
+          </strong>
+        </div>
+      </section>
+      {hud.shotResult !== "READY TO RIP" ? (
+        <div className="mobile-result-chip" aria-live="polite">
+          {hud.shotResult}
+        </div>
+      ) : null}
+
       <div className="top-rail">
         <section className="panel score-card" aria-label="Scoreboard">
           <div className="brand-row">
@@ -182,25 +216,6 @@ export function HUD({
       <div />
 
       <section className="mobile-hud-tray" aria-label="Mobile shot controls">
-        <div className="mobile-status-strip">
-          <div>
-            <small>Pin</small>
-            <strong>{formatYards(hud.distanceToPin)}</strong>
-          </div>
-          <div>
-            <small>Lie</small>
-            <strong>{lieName(hud.surface)}</strong>
-          </div>
-          <div>
-            <small>Wind</small>
-            <strong>{compactWindHint(windHint)}</strong>
-          </div>
-          <div>
-            <small>Aim</small>
-            <strong>{hud.aimDegrees.toFixed(0)} deg</strong>
-          </div>
-        </div>
-
         <div className="mobile-shot-row" aria-label="Shot type">
           {SHOT_TYPES.map((shotType) => (
             <button
@@ -217,9 +232,11 @@ export function HUD({
 
         <details className="mobile-setup-details">
           <summary>
-            <span>Lineup</span>
+            <span>
+              Lineup <em>{lieName(hud.surface)}</em>
+            </span>
             <strong>
-              {selectedClub.shortName} / {spinRead}
+              {hud.aimDegrees.toFixed(0)} deg / {spinRead}
             </strong>
           </summary>
           <label className="setup-slider">

@@ -2212,8 +2212,8 @@ export function GolfScene(props: GolfSceneProps) {
         <div className="mobile-swing-zone" ref={mobileSwingZoneRef} role="application" aria-label="Touch swing zone">
           <div className="mobile-swing-fill" aria-hidden="true" />
           <div className="mobile-swing-release" aria-hidden="true" />
-          <strong>Pull</strong>
-          <span>Swipe up to swing</span>
+          <strong>Drag down</strong>
+          <span>Release upward to swing</span>
         </div>
       </div>
     </div>

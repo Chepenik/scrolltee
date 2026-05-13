@@ -73,7 +73,9 @@ button {
 }
 
 .mobile-touch-controls,
-.mobile-hud-tray {
+.mobile-hud-tray,
+.mobile-top-strip,
+.mobile-result-chip {
   display: none;
 }
 
@@ -1394,5 +1396,473 @@ kbd {
 
   .mobile-swing-zone strong {
     font-size: 20px;
+  }
+}
+
+@media (max-width: 980px) and (pointer: coarse), (max-width: 980px) and (hover: none) {
+  .game-shell {
+    --mobile-safe-top: max(8px, env(safe-area-inset-top));
+    --mobile-safe-bottom: max(8px, env(safe-area-inset-bottom));
+    --mobile-tray-height: 148px;
+    --mobile-swing-gap: 8px;
+    --mobile-swing-height: 76px;
+    height: 100dvh;
+    min-height: 100dvh;
+    min-width: 0;
+  }
+
+  .hud {
+    z-index: 5;
+    display: block;
+    padding: 0;
+    gap: 0;
+  }
+
+  .top-rail,
+  .bottom-rail {
+    display: none;
+  }
+
+  .mobile-top-strip {
+    pointer-events: auto;
+    position: absolute;
+    top: var(--mobile-safe-top);
+    right: 8px;
+    left: 8px;
+    z-index: 8;
+    display: grid;
+    grid-template-columns: 0.9fr 0.62fr 0.96fr 0.82fr 1.6fr;
+    gap: 4px;
+    align-items: stretch;
+    min-height: 50px;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(8, 12, 13, 0.58);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-top-strip div {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    padding: 3px 5px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .mobile-top-strip small {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 850;
+    line-height: 1;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+  }
+
+  .mobile-top-strip strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-hole-pill {
+    border: 1px solid rgba(255, 224, 138, 0.24);
+  }
+
+  .mobile-setup-pill {
+    border: 1px solid rgba(111, 243, 168, 0.22);
+  }
+
+  .mobile-result-chip {
+    pointer-events: none;
+    position: absolute;
+    top: calc(var(--mobile-safe-top) + 58px);
+    left: 50%;
+    z-index: 8;
+    display: block;
+    max-width: calc(100vw - 28px);
+    padding: 5px 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 224, 138, 0.24);
+    border-radius: 999px;
+    background: rgba(8, 12, 13, 0.52);
+    color: var(--sun);
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-hud-tray {
+    pointer-events: auto;
+    position: absolute;
+    right: 8px;
+    bottom: var(--mobile-safe-bottom);
+    left: 8px;
+    z-index: 7;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(146px, 0.68fr);
+    gap: 5px;
+    align-items: stretch;
+    max-height: var(--mobile-tray-height);
+    padding: 6px;
+    overflow: visible;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(8, 12, 13, 0.68);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-status-strip {
+    display: none;
+  }
+
+  .mobile-shot-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .mobile-shot-row .chip-button {
+    min-height: 40px;
+    padding: 0 3px;
+    border-radius: 7px;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .mobile-setup-details {
+    grid-column: 1 / 2;
+    grid-row: 2;
+    position: relative;
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .mobile-setup-details summary {
+    min-height: 36px;
+    padding: 0 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1;
+    text-transform: uppercase;
+    list-style: none;
+    letter-spacing: 0.06em;
+  }
+
+  .mobile-setup-details summary span,
+  .mobile-setup-details summary strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-setup-details summary strong {
+    flex: 0 1 auto;
+    color: var(--ink);
+  }
+
+  .mobile-setup-details summary em {
+    display: none;
+    font-style: normal;
+  }
+
+  .mobile-setup-details[open] {
+    position: absolute;
+    right: 6px;
+    bottom: calc(100% + 8px);
+    left: 6px;
+    z-index: 9;
+    max-height: 42dvh;
+    padding: 0 9px 8px;
+    overflow-y: auto;
+    background: rgba(8, 12, 13, 0.82);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-setup-details[open] summary {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .mobile-setup-details[open] summary em {
+    display: inline;
+  }
+
+  .mobile-setup-details .setup-slider {
+    margin-top: 7px;
+    font-size: 10px;
+  }
+
+  .mobile-setup-details .setup-reset {
+    min-height: 36px;
+    margin-top: 7px;
+    font-size: 12px;
+  }
+
+  .mobile-actions {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    display: flex;
+    gap: 3px;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .mobile-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-actions .ui-button {
+    flex: 0 0 44px;
+    min-height: 36px;
+    padding: 0 5px;
+    border-radius: 7px;
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .mobile-actions .ui-button.primary {
+    flex-basis: 48px;
+  }
+
+  .mobile-club-scroll {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: flex;
+    gap: 5px;
+    min-width: 0;
+    min-height: 47px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 0;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .mobile-club-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-club-button {
+    flex: 0 0 52px;
+    min-width: 0;
+    min-height: 47px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--ink);
+    cursor: pointer;
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    text-align: center;
+    scroll-snap-align: start;
+  }
+
+  .mobile-club-button strong {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .mobile-club-button span {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .mobile-touch-controls {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: block;
+  }
+
+  .mobile-aim-pad {
+    pointer-events: auto;
+    position: absolute;
+    left: 8px;
+    bottom: calc(var(--mobile-safe-bottom) + var(--mobile-tray-height) + var(--mobile-swing-height) + 20px);
+    display: grid;
+    grid-template-columns: 42px auto 42px;
+    align-items: center;
+    gap: 5px;
+    min-height: 44px;
+    padding: 4px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(8, 12, 13, 0.5);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-aim-pad button {
+    width: 42px;
+    height: 42px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ink);
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1;
+    touch-action: none;
+  }
+
+  .mobile-aim-pad span {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .mobile-swing-zone {
+    --mobile-swing-pull: 0;
+    --mobile-swing-release: 0;
+    pointer-events: auto;
+    position: absolute;
+    bottom: calc(var(--mobile-safe-bottom) + var(--mobile-tray-height) + var(--mobile-swing-gap));
+    right: 8px;
+    width: min(42vw, 180px);
+    height: var(--mobile-swing-height);
+    overflow: hidden;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 4px;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(8, 12, 13, 0.54);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+    color: var(--ink);
+    text-align: center;
+    touch-action: none;
+    user-select: none;
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-swing-zone strong {
+    font-size: 18px;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .mobile-swing-zone span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+}
+
+@media (max-width: 980px) and (pointer: coarse) and (min-height: 820px), (max-width: 980px) and (hover: none) and (min-height: 820px) {
+  .game-shell {
+    --mobile-tray-height: 154px;
+    --mobile-swing-height: 84px;
+    --mobile-swing-gap: 10px;
+  }
+
+  .mobile-top-strip {
+    min-height: 54px;
+  }
+
+  .mobile-swing-zone strong {
+    font-size: 20px;
+  }
+
+  .mobile-swing-zone span {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 980px) and (pointer: coarse) and (max-height: 720px), (max-width: 980px) and (hover: none) and (max-height: 720px) {
+  .game-shell {
+    --mobile-tray-height: 142px;
+    --mobile-swing-height: 86px;
+    --mobile-swing-gap: 6px;
+    --mobile-safe-top: max(6px, env(safe-area-inset-top));
+    --mobile-safe-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .mobile-top-strip {
+    min-height: 46px;
+    padding: 4px;
+  }
+
+  .mobile-top-strip small {
+    font-size: 7px;
+  }
+
+  .mobile-top-strip strong {
+    font-size: 11px;
+  }
+
+  .mobile-result-chip {
+    top: calc(var(--mobile-safe-top) + 52px);
+  }
+
+  .mobile-shot-row .chip-button {
+    min-height: 36px;
+    font-size: 10px;
+  }
+
+  .mobile-setup-details summary,
+  .mobile-actions .ui-button {
+    min-height: 32px;
+  }
+
+  .mobile-club-scroll,
+  .mobile-club-button {
+    min-height: 43px;
+  }
+
+  .mobile-club-button {
+    flex-basis: 50px;
+  }
+
+  .mobile-swing-zone {
+    width: min(42vw, 164px);
+  }
+
+  .mobile-swing-zone strong {
+    font-size: 15px;
+  }
+
+  .mobile-swing-zone span {
+    font-size: 10px;
   }
 }
