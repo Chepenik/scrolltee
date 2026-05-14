@@ -14,7 +14,7 @@ export const SITE_KEYWORDS = [
 ];
 
 export const SOCIAL_IMAGE_ALT =
-  "Scroll Tee arcade golf preview with a golf ball, flag, fairway, and scroll-wheel swing cue.";
+  "Scroll Tee arcade golf preview with a dramatic fairway, golf ball, club, flag, shot trail, and local multiplayer colors.";
 
 export const structuredData = {
   "@context": "https://schema.org",
