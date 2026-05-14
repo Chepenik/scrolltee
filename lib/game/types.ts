@@ -42,6 +42,12 @@ export type GameSettings = {
   debugInput: boolean;
 };
 
+export type PlayerProfile = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type SwingDebugSnapshot = {
   phase: SwingPhase;
   device: DeviceGuess;
@@ -106,6 +112,7 @@ export type WindState = {
 };
 
 export type HudSnapshot = {
+  playerId: string;
   phase: SwingPhase;
   holeNumber: number;
   holeCount: number;
@@ -134,6 +141,29 @@ export type HudSnapshot = {
   roundComplete: boolean;
   cameraMode: CameraMode;
   swing: SwingDebugSnapshot;
+};
+
+export type PlayerTurnState = {
+  playerId: string;
+  holeNumber: number;
+  strokes: number;
+  holed: boolean;
+  position: Vec3Tuple;
+  surface: SurfaceType;
+  aimAngle: number;
+  shotResult: string;
+};
+
+export type PlayerScoreSummary = PlayerProfile & {
+  currentHoleStrokes: number;
+  completedHoles: number;
+  holeScores: Array<number | null>;
+  totalStrokes: number;
+  totalPar: number;
+  roundScore: number;
+  holed: boolean;
+  active: boolean;
+  status: "On turn" | "Ready" | "Waiting" | "Holed";
 };
 
 export type BallPhysicsState = {

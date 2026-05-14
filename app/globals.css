@@ -153,10 +153,97 @@ button {
   text-transform: uppercase;
 }
 
+.active-player-banner {
+  --player-color: var(--mint);
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-bottom: 10px;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--player-color) 58%, transparent);
+  border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--player-color) 18%, transparent), rgba(255, 255, 255, 0.06));
+}
+
+.active-player-banner small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.active-player-banner strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-swatch {
+  --player-color: var(--mint);
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--player-color);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--player-color) 55%, transparent);
+}
+
 .score-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.player-leaderboard {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.player-score-row {
+  --player-color: var(--mint);
+  display: grid;
+  grid-template-columns: auto minmax(58px, 1fr) minmax(54px, 0.8fr) 32px 34px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.player-score-row.is-active {
+  border-color: color-mix(in srgb, var(--player-color) 66%, transparent);
+  background: color-mix(in srgb, var(--player-color) 16%, rgba(255, 255, 255, 0.06));
+}
+
+.player-score-row strong,
+.player-score-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-score-row strong {
+  color: var(--ink);
+}
+
+.player-score-row em,
+.player-score-row b {
+  color: var(--ink);
+  font-style: normal;
+  text-align: right;
 }
 
 .metric {
@@ -726,6 +813,76 @@ kbd {
   line-height: 1.4;
 }
 
+.round-setup {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  margin: 0 auto 14px;
+}
+
+.round-setup > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.player-count-row {
+  display: grid;
+  grid-template-columns: repeat(4, 52px);
+  gap: 8px;
+}
+
+.player-count-button {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.player-count-button.is-active {
+  border-color: rgba(111, 243, 168, 0.76);
+  background: rgba(111, 243, 168, 0.22);
+  color: #edfff4;
+}
+
+.setup-player-preview {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin: -2px 0 18px;
+}
+
+.setup-player-dot {
+  --player-color: var(--mint);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--player-color) 48%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--player-color) 13%, rgba(255, 255, 255, 0.06));
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.setup-player-dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--player-color);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--player-color) 55%, transparent);
+}
+
 .start-actions {
   display: flex;
   justify-content: center;
@@ -755,8 +912,43 @@ kbd {
   color: var(--muted);
 }
 
+.hole-results {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 18px;
+}
+
+.hole-result-row {
+  --player-color: var(--mint);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px 54px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--player-color) 38%, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--player-color) 12%, rgba(255, 255, 255, 0.06));
+  text-align: left;
+}
+
+.hole-result-row span {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hole-result-row strong,
+.hole-result-row em {
+  font-style: normal;
+  font-weight: 900;
+  text-align: right;
+}
+
 .round-card {
-  width: min(760px, calc(100vw - 48px));
+  width: min(980px, calc(100vw - 48px));
 }
 
 .final-scorecard {
@@ -785,6 +977,56 @@ kbd {
   display: block;
   margin-top: 4px;
   font-size: 20px;
+}
+
+.round-scorecard {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  margin: 18px 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.round-scorecard-header,
+.round-scorecard-row {
+  --player-color: var(--mint);
+  display: grid;
+  grid-template-columns: 92px repeat(18, minmax(30px, 1fr)) 54px 44px;
+  gap: 4px;
+  align-items: center;
+  min-width: 820px;
+}
+
+.round-scorecard-header {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.round-scorecard-row {
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--player-color) 38%, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--player-color) 10%, rgba(255, 255, 255, 0.06));
+}
+
+.round-scorecard span,
+.round-scorecard strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-scorecard span {
+  text-align: center;
+}
+
+.round-scorecard-row strong:first-child {
+  text-align: left;
 }
 
 .floating-toast {
@@ -1443,7 +1685,7 @@ kbd {
     left: 8px;
     z-index: 8;
     display: grid;
-    grid-template-columns: 0.9fr 0.62fr 0.96fr 0.82fr 1.6fr;
+    grid-template-columns: 1.16fr 0.78fr 0.56fr 0.82fr 0.72fr 1.24fr;
     gap: 4px;
     align-items: stretch;
     min-height: 50px;
@@ -1490,6 +1732,12 @@ kbd {
 
   .mobile-hole-pill {
     border: 1px solid rgba(255, 224, 138, 0.24);
+  }
+
+  .mobile-player-pill {
+    --player-color: var(--mint);
+    border: 1px solid color-mix(in srgb, var(--player-color) 48%, rgba(255, 255, 255, 0.1));
+    background: color-mix(in srgb, var(--player-color) 14%, rgba(255, 255, 255, 0.07));
   }
 
   .mobile-setup-pill {

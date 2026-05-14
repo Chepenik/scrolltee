@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { HUD } from "@/components/HUD";
 import { CLUB_BY_ID, clubIdForKey, effectiveShotType, nextClubId } from "@/lib/game/clubs";
-import { holeDistance } from "@/lib/game/course";
+import { BALL_RADIUS, holeDistance, surfaceAt, terrainHeightAt } from "@/lib/game/course";
 import { FIRST_HOLE, HOLES } from "@/lib/game/holes";
 import { createEmptySwingDebug } from "@/lib/game/input";
 import { completionText } from "@/lib/game/scoring";
 import { windForShot } from "@/lib/game/wind";
-import type { ClubId, GameSettings, HudSnapshot, ShotSetup, ShotType } from "@/lib/game/types";
+import type {
+  ClubId,
+  GameSettings,
+  HudSnapshot,
+  PlayerProfile,
+  PlayerScoreSummary,
+  PlayerTurnState,
+  ShotSetup,
+  ShotType
+} from "@/lib/game/types";
 import { GolfScene } from "./GolfScene";
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -25,6 +34,27 @@ const DEFAULT_SHOT_SETUP: ShotSetup = {
   spin: 0
 };
 
+const PLAYER_PRESETS: PlayerProfile[] = [
+  { id: "p1", name: "Player 1", color: "#6ff3a8" },
+  { id: "p2", name: "Player 2", color: "#69d2ff" },
+  { id: "p3", name: "Player 3", color: "#ffd166" },
+  { id: "p4", name: "Player 4", color: "#ff795d" }
+];
+
+type PlayerScores = Record<string, Array<number | null>>;
+
+type RoundState = {
+  players: PlayerProfile[];
+  playerScores: PlayerScores;
+  turnStates: Record<string, PlayerTurnState>;
+  activePlayerIndex: number;
+  turnToken: number;
+};
+
+type PlayerColorStyle = CSSProperties & {
+  "--player-color"?: string;
+};
+
 function formatScoreDiff(diff: number) {
   if (diff === 0) {
     return "E";
@@ -32,8 +62,13 @@ function formatScoreDiff(diff: number) {
   return diff > 0 ? `+${diff}` : `${diff}`;
 }
 
+function colorStyle(color: string): PlayerColorStyle {
+  return { "--player-color": color };
+}
+
 function createDefaultHud(hole = FIRST_HOLE): HudSnapshot {
   return {
+    playerId: "p1",
     phase: "IDLE",
     holeNumber: hole.holeNumber,
     holeCount: HOLES.length,
@@ -65,13 +100,84 @@ function createDefaultHud(hole = FIRST_HOLE): HudSnapshot {
   };
 }
 
+function createPlayerScores(players: PlayerProfile[]): PlayerScores {
+  const scores: PlayerScores = {};
+  for (const player of players) {
+    scores[player.id] = Array<number | null>(HOLES.length).fill(null);
+  }
+  return scores;
+}
+
+function createInitialTurnState(playerId: string, hole = FIRST_HOLE): PlayerTurnState {
+  const x = hole.teePosition.x;
+  const z = hole.teePosition.z;
+
+  return {
+    playerId,
+    holeNumber: hole.holeNumber,
+    strokes: 0,
+    holed: false,
+    position: [x, terrainHeightAt(x, z, hole) + BALL_RADIUS, z],
+    surface: surfaceAt(x, z, hole),
+    aimAngle: Math.atan2(hole.cupPosition.x - x, hole.cupPosition.z - z),
+    shotResult: "READY TO RIP"
+  };
+}
+
+function createTurnStates(players: PlayerProfile[], hole = FIRST_HOLE) {
+  const states: Record<string, PlayerTurnState> = {};
+  for (const player of players) {
+    states[player.id] = createInitialTurnState(player.id, hole);
+  }
+  return states;
+}
+
+function createRoundState(playerCount: number, hole = FIRST_HOLE): RoundState {
+  const players = PLAYER_PRESETS.slice(0, Math.max(1, Math.min(4, playerCount)));
+
+  return {
+    players,
+    playerScores: createPlayerScores(players),
+    turnStates: createTurnStates(players, hole),
+    activePlayerIndex: 0,
+    turnToken: 0
+  };
+}
+
+function scoreRowsWithResetHole(current: RoundState, holeIndex: number) {
+  const playerScores: PlayerScores = {};
+  for (const player of current.players) {
+    const row = [...(current.playerScores[player.id] ?? Array<number | null>(HOLES.length).fill(null))];
+    row[holeIndex] = null;
+    playerScores[player.id] = row;
+  }
+  return playerScores;
+}
+
+function findNextUnfinishedPlayerIndex(players: PlayerProfile[], startIndex: number, playerScores: PlayerScores, holeIndex: number) {
+  if (players.length <= 0) {
+    return 0;
+  }
+
+  for (let offset = 1; offset <= players.length; offset += 1) {
+    const index = (startIndex + offset) % players.length;
+    const player = players[index];
+    if (player && playerScores[player.id]?.[holeIndex] === null) {
+      return index;
+    }
+  }
+
+  return Math.max(0, Math.min(startIndex, players.length - 1));
+}
+
 export function GameShell() {
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [currentHoleIndex, setCurrentHoleIndex] = useState(0);
-  const [holeScores, setHoleScores] = useState<Array<number | null>>(() => Array<number | null>(HOLES.length).fill(null));
+  const [setupPlayerCount, setSetupPlayerCount] = useState(1);
+  const [roundState, setRoundState] = useState<RoundState>(() => createRoundState(1));
   const [selectedClubId, setSelectedClubId] = useState<ClubId>("driver");
   const [shotSetup, setShotSetup] = useState<ShotSetup>(DEFAULT_SHOT_SETUP);
   const [hud, setHud] = useState<HudSnapshot>(() => createDefaultHud());
@@ -82,10 +188,29 @@ export function GameShell() {
   const lastShotResultRef = useRef("READY TO RIP");
   const toastIdRef = useRef(0);
   const currentHole = HOLES[currentHoleIndex] ?? FIRST_HOLE;
-  const completedHoles = holeScores.filter((score) => score !== null).length;
-  const completedStrokes = holeScores.reduce<number>((total, score) => total + (score ?? 0), 0);
-  const completedPar = holeScores.reduce<number>((total, score, index) => total + (score === null ? 0 : (HOLES[index]?.par ?? 0)), 0);
-  const roundComplete = holeScores.every((score) => score !== null);
+  const players = roundState.players;
+  const activePlayer = players[roundState.activePlayerIndex] ?? players[0] ?? PLAYER_PRESETS[0];
+  const activeTurnState = roundState.turnStates[activePlayer.id] ?? createInitialTurnState(activePlayer.id, currentHole);
+  const activeScores = roundState.playerScores[activePlayer.id] ?? Array<number | null>(HOLES.length).fill(null);
+  const multiplayer = players.length > 1;
+  const holeComplete = players.every((player) => roundState.playerScores[player.id]?.[currentHoleIndex] !== null);
+  const roundComplete = players.every((player) => (roundState.playerScores[player.id] ?? []).every((score) => score !== null));
+  const activeCompletedHoles = activeScores.reduce<number>(
+    (count, score, index) => (index !== currentHoleIndex && score !== null ? count + 1 : count),
+    0
+  );
+  const activeCompletedStrokes = activeScores.reduce<number>((total, score, index) => {
+    if (index === currentHoleIndex) {
+      return total;
+    }
+    return total + (score ?? 0);
+  }, 0);
+  const activeCompletedPar = activeScores.reduce<number>((total, score, index) => {
+    if (index === currentHoleIndex) {
+      return total;
+    }
+    return total + (score === null ? 0 : (HOLES[index]?.par ?? 0));
+  }, 0);
 
   useEffect(() => {
     const raw = window.localStorage.getItem("scroll-tee-settings");
@@ -107,27 +232,48 @@ export function GameShell() {
     window.localStorage.setItem("scroll-tee-settings", JSON.stringify(settings));
   }, [settings]);
 
-  const onRestartHole = useCallback(() => {
-    setStarted(true);
-    setPaused(false);
-    setHoleScores((current) => current.map((score, index) => (index === currentHoleIndex ? null : score)));
-    setShotSetup(DEFAULT_SHOT_SETUP);
-    setRestartToken((value) => value + 1);
-  }, [currentHoleIndex]);
-
-  const onRestartRound = useCallback(() => {
+  const startConfiguredRound = useCallback(() => {
     setStarted(true);
     setPaused(false);
     setCurrentHoleIndex(0);
-    setHoleScores(Array<number | null>(HOLES.length).fill(null));
+    setRoundState(createRoundState(setupPlayerCount, FIRST_HOLE));
     setShotSetup(DEFAULT_SHOT_SETUP);
     setHud(createDefaultHud(FIRST_HOLE));
     setRestartToken((value) => value + 1);
     lastShotResultRef.current = "READY TO RIP";
-  }, []);
+  }, [setupPlayerCount]);
+
+  const onRestartHole = useCallback(() => {
+    setStarted(true);
+    setPaused(false);
+    setRoundState((current) => ({
+      ...current,
+      playerScores: scoreRowsWithResetHole(current, currentHoleIndex),
+      turnStates: createTurnStates(current.players, currentHole),
+      activePlayerIndex: 0,
+      turnToken: current.turnToken + 1
+    }));
+    setShotSetup(DEFAULT_SHOT_SETUP);
+    setHud(createDefaultHud(currentHole));
+    setRestartToken((value) => value + 1);
+    lastShotResultRef.current = "READY TO RIP";
+  }, [currentHole, currentHoleIndex]);
+
+  const onRestartRound = useCallback(() => {
+    const playerCount = Math.max(1, players.length || setupPlayerCount);
+    setStarted(true);
+    setPaused(false);
+    setCurrentHoleIndex(0);
+    setSetupPlayerCount(playerCount);
+    setRoundState(createRoundState(playerCount, FIRST_HOLE));
+    setShotSetup(DEFAULT_SHOT_SETUP);
+    setHud(createDefaultHud(FIRST_HOLE));
+    setRestartToken((value) => value + 1);
+    lastShotResultRef.current = "READY TO RIP";
+  }, [players.length, setupPlayerCount]);
 
   const onNextHole = useCallback(() => {
-    if (!hud.holed || hud.holeNumber !== currentHole.holeNumber || roundComplete || currentHoleIndex >= HOLES.length - 1) {
+    if (!holeComplete || roundComplete || currentHoleIndex >= HOLES.length - 1) {
       return;
     }
 
@@ -136,10 +282,16 @@ export function GameShell() {
     setStarted(true);
     setPaused(false);
     setCurrentHoleIndex(nextHoleIndex);
+    setRoundState((current) => ({
+      ...current,
+      turnStates: createTurnStates(current.players, nextHole),
+      activePlayerIndex: 0,
+      turnToken: current.turnToken + 1
+    }));
     setShotSetup(DEFAULT_SHOT_SETUP);
     setHud(createDefaultHud(nextHole));
     lastShotResultRef.current = "READY TO RIP";
-  }, [currentHole, currentHoleIndex, hud.holeNumber, hud.holed, roundComplete]);
+  }, [currentHoleIndex, holeComplete, roundComplete]);
 
   const onCameraToggle = useCallback(() => {
     setCameraToken((value) => value + 1);
@@ -149,18 +301,21 @@ export function GameShell() {
     setSettings((current) => ({ ...current, [key]: value }));
   }, []);
 
-  const handleClubSelect = useCallback((clubId: ClubId) => {
-    setSelectedClubId(clubId);
-    setHud((current) =>
-      current.clubId === clubId
-        ? current
-        : {
-            ...current,
-            clubId,
-            shotType: effectiveShotType(clubId, shotSetup.shotType)
-          }
-    );
-  }, [shotSetup.shotType]);
+  const handleClubSelect = useCallback(
+    (clubId: ClubId) => {
+      setSelectedClubId(clubId);
+      setHud((current) =>
+        current.clubId === clubId
+          ? current
+          : {
+              ...current,
+              clubId,
+              shotType: effectiveShotType(clubId, shotSetup.shotType)
+            }
+      );
+    },
+    [shotSetup.shotType]
+  );
 
   const updateShotSetup = useCallback((next: Partial<ShotSetup>) => {
     setShotSetup((current) => ({
@@ -268,16 +423,6 @@ export function GameShell() {
   const handleHudUpdate = useCallback(
     (snapshot: HudSnapshot) => {
       setHud(snapshot);
-      if (snapshot.holed) {
-        const scoreIndex = snapshot.holeNumber - 1;
-        setHoleScores((current) => {
-          if (current[scoreIndex] !== null) {
-            return current;
-          }
-
-          return current.map((score, index) => (index === scoreIndex ? snapshot.strokes : score));
-        });
-      }
       if (snapshot.shotResult === "READY TO RIP") {
         lastShotResultRef.current = snapshot.shotResult;
       }
@@ -294,21 +439,130 @@ export function GameShell() {
     [started]
   );
 
-  const active = started && !paused;
+  const handleTurnStateChange = useCallback(
+    (turnState: PlayerTurnState) => {
+      if (turnState.holeNumber !== currentHole.holeNumber) {
+        return;
+      }
+
+      setRoundState((current) => {
+        if (!current.players.some((player) => player.id === turnState.playerId)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          turnStates: {
+            ...current.turnStates,
+            [turnState.playerId]: turnState
+          }
+        };
+      });
+    },
+    [currentHole.holeNumber]
+  );
+
+  const handleTurnComplete = useCallback(
+    (turnState: PlayerTurnState) => {
+      if (turnState.holeNumber !== currentHole.holeNumber) {
+        return;
+      }
+
+      setRoundState((current) => {
+        const completedPlayerIndex = current.players.findIndex((player) => player.id === turnState.playerId);
+        if (completedPlayerIndex === -1 || completedPlayerIndex !== current.activePlayerIndex) {
+          return current;
+        }
+
+        const playerScores: PlayerScores = { ...current.playerScores };
+        const currentRow = [...(playerScores[turnState.playerId] ?? Array<number | null>(HOLES.length).fill(null))];
+        if (turnState.holed && currentRow[currentHoleIndex] === null) {
+          currentRow[currentHoleIndex] = turnState.strokes;
+        }
+        playerScores[turnState.playerId] = currentRow;
+
+        const activePlayerIndex = findNextUnfinishedPlayerIndex(current.players, completedPlayerIndex, playerScores, currentHoleIndex);
+        const turnStates = {
+          ...current.turnStates,
+          [turnState.playerId]: turnState
+        };
+
+        return {
+          ...current,
+          playerScores,
+          turnStates,
+          activePlayerIndex,
+          turnToken: activePlayerIndex === current.activePlayerIndex ? current.turnToken : current.turnToken + 1
+        };
+      });
+    },
+    [currentHole.holeNumber, currentHoleIndex]
+  );
+
+  const playerSummaries = useMemo<PlayerScoreSummary[]>(() => {
+    return players.map((player) => {
+      const scores = roundState.playerScores[player.id] ?? Array<number | null>(HOLES.length).fill(null);
+      const turnState = roundState.turnStates[player.id] ?? createInitialTurnState(player.id, currentHole);
+      const isActive = player.id === activePlayer.id;
+      const hudBelongsToPlayer = isActive && hud.holeNumber === currentHole.holeNumber && hud.playerId === player.id;
+      const recordedCurrentScore = scores[currentHoleIndex];
+      const currentHoleStrokes = recordedCurrentScore ?? (hudBelongsToPlayer ? hud.strokes : turnState.strokes);
+      const playerHoled = recordedCurrentScore !== null || turnState.holed || (hudBelongsToPlayer && hud.holed);
+      const includeCurrentHole = recordedCurrentScore !== null || playerHoled;
+      const completedStrokesOutsideCurrent = scores.reduce<number>((total, score, index) => {
+        if (index === currentHoleIndex) {
+          return total;
+        }
+        return total + (score ?? 0);
+      }, 0);
+      const completedParOutsideCurrent = scores.reduce<number>((total, score, index) => {
+        if (index === currentHoleIndex) {
+          return total;
+        }
+        return total + (score === null ? 0 : (HOLES[index]?.par ?? 0));
+      }, 0);
+      const scoreStrokes = completedStrokesOutsideCurrent + (includeCurrentHole ? currentHoleStrokes : 0);
+      const scorePar = completedParOutsideCurrent + (includeCurrentHole ? currentHole.par : 0);
+      const completedHoles =
+        scores.filter((score) => score !== null).length + (recordedCurrentScore === null && playerHoled ? 1 : 0);
+      const status: PlayerScoreSummary["status"] =
+        isActive && !playerHoled ? "On turn" : playerHoled ? "Holed" : currentHoleStrokes > 0 ? "Waiting" : "Ready";
+
+      return {
+        ...player,
+        active: isActive,
+        currentHoleStrokes,
+        completedHoles,
+        holeScores: scores,
+        totalStrokes: completedStrokesOutsideCurrent + currentHoleStrokes,
+        totalPar: completedParOutsideCurrent + (includeCurrentHole ? currentHole.par : 0),
+        roundScore: scorePar > 0 ? scoreStrokes - scorePar : 0,
+        holed: playerHoled,
+        status
+      };
+    });
+  }, [activePlayer.id, currentHole, currentHoleIndex, hud, players, roundState.playerScores, roundState.turnStates]);
+
+  const rankedPlayerSummaries = useMemo(() => {
+    return [...playerSummaries].sort((a, b) => a.roundScore - b.roundScore || a.totalStrokes - b.totalStrokes || a.id.localeCompare(b.id));
+  }, [playerSummaries]);
+
+  const activePlayerSummary = playerSummaries.find((player) => player.id === activePlayer.id) ?? playerSummaries[0];
+  const active = started && !paused && !roundComplete;
   const selectedClub = CLUB_BY_ID[selectedClubId] ?? CLUB_BY_ID.driver;
   const displayHud = useMemo(() => {
-    const hudBelongsToCurrentHole = hud.holeNumber === currentHole.holeNumber;
-    const displayHoled = hudBelongsToCurrentHole && hud.holed;
-    const recordedCurrentScore = holeScores[currentHoleIndex];
-    const currentHoleScore = recordedCurrentScore ?? (hudBelongsToCurrentHole ? hud.strokes : 0);
+    const hudBelongsToCurrentHole = hud.holeNumber === currentHole.holeNumber && hud.playerId === activePlayer.id;
+    const displayHoled = activePlayerSummary?.holed ?? (hudBelongsToCurrentHole && hud.holed);
+    const recordedCurrentScore = activeScores[currentHoleIndex];
+    const currentHoleScore = recordedCurrentScore ?? (hudBelongsToCurrentHole ? hud.strokes : activeTurnState.strokes);
     const includeCurrentHole = recordedCurrentScore !== null || displayHoled;
-    const completedStrokesOutsideCurrent = holeScores.reduce<number>((total, score, index) => {
+    const completedStrokesOutsideCurrent = activeScores.reduce<number>((total, score, index) => {
       if (index === currentHoleIndex) {
         return total;
       }
       return total + (score ?? 0);
     }, 0);
-    const completedParOutsideCurrent = holeScores.reduce<number>((total, score, index) => {
+    const completedParOutsideCurrent = activeScores.reduce<number>((total, score, index) => {
       if (index === currentHoleIndex) {
         return total;
       }
@@ -318,27 +572,62 @@ export function GameShell() {
     const displayTotalPar = completedParOutsideCurrent + (includeCurrentHole ? currentHole.par : 0);
     const scoreStrokes = completedStrokesOutsideCurrent + (includeCurrentHole ? currentHoleScore : 0);
     const scorePar = completedParOutsideCurrent + (includeCurrentHole ? currentHole.par : 0);
-    const displayCompletedHoles = completedHoles + (recordedCurrentScore === null && displayHoled ? 1 : 0);
-    const displayRoundComplete = roundComplete || (currentHoleIndex === HOLES.length - 1 && displayHoled);
+    const displayCompletedHoles = activeCompletedHoles + (recordedCurrentScore === null && displayHoled ? 1 : 0);
+    const fallbackWind = windForShot(currentHole, activeTurnState.strokes + 1);
+    const fallbackDistance = activeTurnState.holed
+      ? 0
+      : holeDistance({
+          ...currentHole,
+          teePosition: {
+            x: activeTurnState.position[0],
+            z: activeTurnState.position[2]
+          }
+        });
 
     return {
       ...hud,
+      playerId: activePlayer.id,
+      phase: hudBelongsToCurrentHole ? hud.phase : activeTurnState.holed ? "HOLED" : "IDLE",
       holeNumber: currentHole.holeNumber,
       holeCount: HOLES.length,
       holeName: currentHole.name,
       par: currentHole.par,
+      strokes: currentHoleScore,
+      distanceToPin: hudBelongsToCurrentHole ? hud.distanceToPin : fallbackDistance,
+      shotResult: hudBelongsToCurrentHole ? hud.shotResult : activeTurnState.shotResult,
+      surface: hudBelongsToCurrentHole ? hud.surface : activeTurnState.surface,
+      ballSpeed: hudBelongsToCurrentHole ? hud.ballSpeed : 0,
       shotType: effectiveShotType(selectedClubId, shotSetup.shotType),
       stanceOffset: shotSetup.stanceOffset,
       ballForward: shotSetup.ballForward,
       spin: shotSetup.spin,
+      wind: hudBelongsToCurrentHole ? hud.wind : fallbackWind,
       totalStrokes: displayTotalStrokes,
       totalPar: displayTotalPar,
       roundScore: scorePar > 0 ? scoreStrokes - scorePar : 0,
+      aimDegrees: hudBelongsToCurrentHole ? hud.aimDegrees : (activeTurnState.aimAngle * 180) / Math.PI,
       holed: displayHoled,
-      completedHoles: displayRoundComplete ? HOLES.length : displayCompletedHoles,
-      roundComplete: displayRoundComplete
+      completedHoles: roundComplete ? HOLES.length : displayCompletedHoles,
+      roundComplete
     };
-  }, [completedHoles, currentHole, currentHoleIndex, holeScores, hud, roundComplete, selectedClubId, shotSetup]);
+  }, [
+    activeCompletedHoles,
+    activePlayer.id,
+    activePlayerSummary?.holed,
+    activeScores,
+    activeTurnState.aimAngle,
+    activeTurnState.holed,
+    activeTurnState.position,
+    activeTurnState.shotResult,
+    activeTurnState.strokes,
+    activeTurnState.surface,
+    currentHole,
+    currentHoleIndex,
+    hud,
+    roundComplete,
+    selectedClubId,
+    shotSetup
+  ]);
 
   const settingsPanel = useMemo(() => {
     if (!settingsOpen) {
@@ -398,23 +687,32 @@ export function GameShell() {
     <main className="game-shell">
       <GolfScene
         active={active}
+        activePlayer={activePlayer}
         cameraToken={cameraToken}
-        completedHoles={completedHoles}
-        completedPar={completedPar}
-        completedStrokes={completedStrokes}
+        completedHoles={activeCompletedHoles}
+        completedPar={activeCompletedPar}
+        completedStrokes={activeCompletedStrokes}
         hole={currentHole}
         onClubChange={handleClubSelect}
         onControlKey={setLastControlKey}
         onHudUpdate={handleHudUpdate}
         onPauseToggle={() => setPaused((value) => !value)}
+        onRestartHole={onRestartHole}
+        onTurnComplete={handleTurnComplete}
+        onTurnStateChange={handleTurnStateChange}
         roundComplete={roundComplete}
         restartToken={restartToken}
         shotSetup={shotSetup}
         selectedClubId={selectedClubId}
         settings={settings}
+        turnState={activeTurnState}
+        turnToken={roundState.turnToken}
       />
       <HUD
+        activePlayer={activePlayer}
+        canAdvanceHole={holeComplete && !roundComplete}
         hud={{ ...displayHud, clubId: selectedClub.id }}
+        multiplayer={multiplayer}
         onCameraToggle={onCameraToggle}
         onClubSelect={handleClubSelect}
         onNextHole={onNextHole}
@@ -426,6 +724,7 @@ export function GameShell() {
         onShotSetupChange={updateShotSetup}
         onShotTypeSelect={(shotType) => updateShotSetup({ shotType })}
         paused={paused}
+        playerSummaries={playerSummaries}
         selectedClubId={selectedClubId}
         settingsOpen={settingsOpen}
       />
@@ -498,6 +797,10 @@ export function GameShell() {
             <span>surface</span>
             <strong>{hud.surface}</strong>
           </div>
+          <div className="debug-row">
+            <span>player</span>
+            <strong>{activePlayer.name}</strong>
+          </div>
         </section>
       ) : null}
       {toasts.map((toast, index) => (
@@ -510,8 +813,31 @@ export function GameShell() {
           <div className="start-card">
             <h1>Scroll Tee</h1>
             <p>Trackball golf for the mouse wheel era. Scroll down to pull back, then scroll up fast to rip it.</p>
+            <div className="round-setup" aria-label="Round setup">
+              <span>Players</span>
+              <div className="player-count-row">
+                {[1, 2, 3, 4].map((count) => (
+                  <button
+                    aria-pressed={setupPlayerCount === count}
+                    className={`player-count-button ${setupPlayerCount === count ? "is-active" : ""}`}
+                    key={count}
+                    onClick={() => setSetupPlayerCount(count)}
+                    type="button"
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="setup-player-preview" aria-label="Player colors">
+              {PLAYER_PRESETS.slice(0, setupPlayerCount).map((player) => (
+                <span className="setup-player-dot" key={player.id} style={colorStyle(player.color)}>
+                  {player.name}
+                </span>
+              ))}
+            </div>
             <div className="start-actions">
-              <button className="ui-button primary" onClick={() => setStarted(true)} type="button">
+              <button className="ui-button primary" onClick={startConfiguredRound} type="button">
                 Start Round
               </button>
               <button className="ui-button" onClick={() => setSettingsOpen(true)} type="button">
@@ -537,13 +863,27 @@ export function GameShell() {
           </div>
         </section>
       ) : null}
-      {displayHud.holed && !displayHud.roundComplete ? (
+      {holeComplete && !displayHud.roundComplete ? (
         <section className="panel complete-card" aria-label="Hole complete">
-          <h2>{completionText(displayHud.strokes, displayHud.par)}</h2>
+          <h2>{multiplayer ? `Hole ${displayHud.holeNumber} Complete` : completionText(displayHud.strokes, displayHud.par)}</h2>
           <p>
-            Hole {displayHud.holeNumber} finished in {displayHud.strokes} on a par {displayHud.par}. Round total:{" "}
-            {displayHud.totalStrokes} ({formatScoreDiff(displayHud.roundScore)}).
+            {multiplayer
+              ? `All players finished the par ${displayHud.par}. Leader: ${rankedPlayerSummaries[0]?.name ?? activePlayer.name} (${formatScoreDiff(
+                  rankedPlayerSummaries[0]?.roundScore ?? 0
+                )}).`
+              : `Hole ${displayHud.holeNumber} finished in ${displayHud.strokes} on a par ${displayHud.par}. Round total: ${
+                  displayHud.totalStrokes
+                } (${formatScoreDiff(displayHud.roundScore)}).`}
           </p>
+          <div className="hole-results">
+            {playerSummaries.map((player) => (
+              <div className="hole-result-row" key={player.id} style={colorStyle(player.color)}>
+                <span>{player.name}</span>
+                <strong>{player.holeScores[currentHoleIndex] ?? "-"}</strong>
+                <em>{formatScoreDiff(player.roundScore)}</em>
+              </div>
+            ))}
+          </div>
           <div className="start-actions">
             <button className="ui-button primary" onClick={onNextHole} type="button">
               Next Hole
@@ -561,15 +901,27 @@ export function GameShell() {
         <section className="panel complete-card round-card" aria-label="Round complete">
           <h2>Round Complete</h2>
           <p>
-            Final score: {displayHud.totalStrokes} strokes, {formatScoreDiff(displayHud.roundScore)} to par.
+            Winner: {rankedPlayerSummaries[0]?.name ?? activePlayer.name}. Final score{" "}
+            {rankedPlayerSummaries[0]?.totalStrokes ?? displayHud.totalStrokes} strokes,{" "}
+            {formatScoreDiff(rankedPlayerSummaries[0]?.roundScore ?? displayHud.roundScore)} to par.
           </p>
-          <div className="final-scorecard">
-            {HOLES.map((hole, index) => (
-              <div className="scorecard-cell" key={hole.holeNumber}>
-                <small>
-                  {hole.holeNumber} / P{hole.par}
-                </small>
-                <strong>{holeScores[index] ?? "-"}</strong>
+          <div className="round-scorecard" role="table" aria-label="Final scorecard">
+            <div className="round-scorecard-header" role="row">
+              <strong>Player</strong>
+              {HOLES.map((hole) => (
+                <span key={hole.holeNumber}>{hole.holeNumber}</span>
+              ))}
+              <strong>Total</strong>
+              <strong>Par</strong>
+            </div>
+            {rankedPlayerSummaries.map((player) => (
+              <div className="round-scorecard-row" key={player.id} role="row" style={colorStyle(player.color)}>
+                <strong>{player.name}</strong>
+                {HOLES.map((hole, index) => (
+                  <span key={hole.holeNumber}>{player.holeScores[index] ?? "-"}</span>
+                ))}
+                <strong>{player.totalStrokes}</strong>
+                <strong>{formatScoreDiff(player.roundScore)}</strong>
               </div>
             ))}
           </div>

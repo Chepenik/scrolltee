@@ -1,15 +1,20 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { CLUBS, CLUB_BY_ID, shotTypeLabel, spinLabel } from "@/lib/game/clubs";
 import { lieName } from "@/lib/game/course";
 import { formatYards } from "@/lib/game/math";
 import { windAimHint } from "@/lib/game/wind";
-import type { ClubId, HudSnapshot, ShotSetup, ShotType } from "@/lib/game/types";
+import type { ClubId, HudSnapshot, PlayerProfile, PlayerScoreSummary, ShotSetup, ShotType } from "@/lib/game/types";
 import { ClubSelector } from "./ClubSelector";
 import { SwingMeter } from "./SwingMeter";
 
 type HUDProps = {
   hud: HudSnapshot;
+  activePlayer: PlayerProfile;
+  playerSummaries: PlayerScoreSummary[];
+  multiplayer: boolean;
+  canAdvanceHole: boolean;
   selectedClubId: ClubId;
   settingsOpen: boolean;
   paused: boolean;
@@ -34,6 +39,21 @@ const FLIGHT_READ: Record<ShotType, string> = {
   putt: "Ground"
 };
 
+type PlayerColorStyle = CSSProperties & {
+  "--player-color"?: string;
+};
+
+function colorStyle(color: string): PlayerColorStyle {
+  return { "--player-color": color };
+}
+
+function formatScoreDiff(diff: number) {
+  if (diff === 0) {
+    return "E";
+  }
+  return diff > 0 ? `+${diff}` : `${diff}`;
+}
+
 function compactWindHint(hint: string) {
   if (hint === "Neutral") {
     return "Calm";
@@ -46,6 +66,10 @@ function compactWindHint(hint: string) {
 
 export function HUD({
   hud,
+  activePlayer,
+  playerSummaries,
+  multiplayer,
+  canAdvanceHole,
   selectedClubId,
   settingsOpen,
   paused,
@@ -76,6 +100,10 @@ export function HUD({
   return (
     <div className="hud" aria-label="Game HUD">
       <section className="mobile-top-strip" aria-label="Mobile round status">
+        <div className="mobile-player-pill" style={colorStyle(activePlayer.color)}>
+          <small>Turn</small>
+          <strong>{activePlayer.name}</strong>
+        </div>
         <div className="mobile-hole-pill">
           <small>
             Hole {hud.holeNumber}/{hud.holeCount}
@@ -118,6 +146,11 @@ export function HUD({
             </span>
           </div>
           <div className="hole-name">{hud.holeName}</div>
+          <div className="active-player-banner" style={colorStyle(activePlayer.color)}>
+            <span className="player-swatch" aria-hidden="true" />
+            <small>{multiplayer ? "On turn" : "Player"}</small>
+            <strong>{activePlayer.name}</strong>
+          </div>
           <div className="score-grid">
             <div className="metric">
               <small>Par</small>
@@ -154,6 +187,17 @@ export function HUD({
               <small>Aim</small>
               <strong>{hud.aimDegrees.toFixed(0)} deg</strong>
             </div>
+          </div>
+          <div className="player-leaderboard" aria-label="Player scorecard">
+            {playerSummaries.map((player) => (
+              <div className={`player-score-row ${player.active ? "is-active" : ""}`} key={player.id} style={colorStyle(player.color)}>
+                <span className="player-swatch" aria-hidden="true" />
+                <strong>{player.name}</strong>
+                <span>{player.status}</span>
+                <em>{player.currentHoleStrokes}</em>
+                <b>{formatScoreDiff(player.roundScore)}</b>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -303,7 +347,7 @@ export function HUD({
         </div>
 
         <div className="mobile-actions">
-          <button className="ui-button primary" disabled={!hud.holed || hud.roundComplete} onClick={onNextHole} type="button">
+          <button className="ui-button primary" disabled={!canAdvanceHole || hud.roundComplete} onClick={onNextHole} type="button">
             Next
           </button>
           <button className="ui-button" onClick={onRestartHole} type="button">
@@ -425,7 +469,7 @@ export function HUD({
         <ClubSelector disabled={controlsLocked} onSelect={onClubSelect} selectedClubId={selectedClubId} />
         <section className="panel action-card" aria-label="Actions">
           <div className="primary-actions">
-            <button className="ui-button primary" disabled={!hud.holed || hud.roundComplete} onClick={onNextHole} type="button">
+            <button className="ui-button primary" disabled={!canAdvanceHole || hud.roundComplete} onClick={onNextHole} type="button">
               Next Hole
             </button>
             <button className="ui-button" onClick={onRestartHole} type="button">

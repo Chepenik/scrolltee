@@ -2,7 +2,7 @@
 
 Scroll Tee is an original browser arcade golf game built with Next.js, TypeScript, and Three.js. It uses mouse wheel and touchpad scroll input as a virtual trackball: scroll down to pull back, then scroll up fast to strike.
 
-The game is an 18-hole arcade round with procedural lightweight course geometry, an expanded club bag, shot types, wind, pre-shot spin and lineup controls, flagstick interaction, scorecard flow, fairway boost strips, shot trails, cup bursts, wind streamers, visible club-head changes, and soft-lock guards around ball physics.
+The game is an 18-hole arcade round with procedural lightweight course geometry, 1-4 local players, an expanded club bag, shot types, wind, pre-shot spin and lineup controls, flagstick interaction, scorecard flow, fairway boost strips, shot trails, cup bursts, wind streamers, visible club-head changes, and soft-lock guards around ball physics.
 
 ## Run Locally
 
@@ -21,6 +21,16 @@ npm run typecheck
 npm run build
 npm audit --audit-level=moderate
 ```
+
+## Round Setup and Multiplayer
+
+The start screen lets you choose 1, 2, 3, or 4 local players. One-player rounds keep the same solo 18-hole flow. Multiplayer rounds use hot-seat turns on the same device.
+
+Turn order is deterministic: Player 1 starts every hole, then Player 2, Player 3, and Player 4 if present. After each stopped shot, play advances to the next unfinished player on that hole. Players who hole out are skipped until the next hole. When every player has finished the current hole, Next Hole becomes available and the next hole starts again with Player 1.
+
+Restart Hole resets the current hole for every player and clears that hole's scores. Restart Round keeps the selected player count and clears all scores. Round completion waits for every player to finish all 18 holes.
+
+Each player has a distinct color shown in the HUD turn banner, mobile turn pill, leaderboard rows, hole results, final scorecard, and the active club accent.
 
 ## Controls
 
@@ -46,7 +56,7 @@ npm audit --audit-level=moderate
 
 Driver, 3 Wood, 5 Wood, 3 Iron, 4 Iron, 5 Iron, 6 Iron, 7 Iron, 8 Iron, 9 Iron, Pitching Wedge, Sand Wedge, Lob Wedge, and Putter.
 
-Auto-club selection runs after each stopped shot based on distance and lie, but manual selection always overrides it before the next swing. The club beside the ball changes head shape as you move between woods, irons, wedges, and the putter.
+Auto-club selection runs after each stopped shot based on distance and lie, but manual selection always overrides it before the next swing. The club beside the ball changes head shape as you move between woods, irons, wedges, and the putter. The procedural club now includes a grip band, ferrule, hosel, face details, and player-colored head accents so the active player is visible in the scene without external art assets.
 
 ## Shot Types
 
@@ -80,7 +90,7 @@ Shot trails now change color and sparkle by shot type and spin. Wind streamers a
 - `lib/game/physics.ts`: ball launch, flight, bounce, roll, and soft-lock guards
 - `lib/game/scoring.ts`: shot feedback and score text
 - `components/GolfScene.tsx`: Three.js rendering and frame loop
-- `components/GameShell.tsx`: round state, settings, scorecard flow
+- `components/GameShell.tsx`: round state, settings, local multiplayer turns, scorecard flow
 - `components/HUD.tsx`: score HUD, lineup controls, action controls
 - `components/ClubSelector.tsx`: compact club bag UI
 
